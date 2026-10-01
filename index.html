@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>The Water Cooler: a tiny office RPG</title>
+    <meta
+      name="description"
+      content="A cosy little pixel art game about a designer, an engineer and a product manager who are all sure AI means they don't need each other anymore."
+    />
+    <meta name="theme-color" content="#1d1922" />
+    <meta property="og:title" content="The Water Cooler" />
+    <meta
+      property="og:description"
+      content="A cosy little pixel art game about a designer, an engineer and a product manager who are all sure AI means they don't need each other anymore."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect x='5' y='0' width='6' height='7' fill='%238fd0f0'/%3E%3Crect x='4' y='7' width='8' height='9' fill='%23ebe8f1'/%3E%3Crect x='6' y='9' width='2' height='2' fill='%235aa8e0'/%3E%3Crect x='8' y='9' width='2' height='2' fill='%23e0584a'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="bar" id="bar">
+        <a class="back" href="https://jimmyleslie.design">
+          <span aria-hidden="true">&larr;</span> jimmyleslie.design
+        </a>
+        <span class="logo">The Water Cooler</span>
+        <button class="sound" id="sound" type="button" aria-pressed="false">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shape-rendering="crispEdges">
+            <path fill="currentColor" d="M2 6h3l4-3v10l-4-3H2z" />
+            <path class="sound__on" fill="currentColor" d="M11 5h1v6h-1zM13 3h1v10h-1z" />
+            <path class="sound__off" fill="currentColor" d="M11 6h1v1h-1zM12 7h1v1h-1zM13 8h1v1h-1zM13 6h1v1h-1zM11 8h1v1h-1z" />
+          </svg>
+          <span id="soundLabel">Sound off</span>
+        </button>
+      </header>
+
+      <main class="stage" id="stage">
+        <canvas
+          id="game"
+          width="320"
+          height="192"
+          role="img"
+          aria-label="A cosy pixel art office with a water cooler in the middle, where a designer, an engineer and a product manager are chatting."
+        ></canvas>
+
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+        <div class="dialogue" id="dialogue" hidden>
+          <div class="dialogue__portrait"><canvas id="portrait" width="14" height="12"></canvas></div>
+          <div class="dialogue__body">
+            <span class="dialogue__name" id="dlgName"></span>
+            <p class="dialogue__text" id="dlgText" aria-hidden="true"></p>
+          </div>
+          <span class="dialogue__next" aria-hidden="true"></span>
+          <p class="sr-only" id="dlgLive" aria-live="polite"></p>
+        </div>
+
+        <div class="title" id="title">
+          <div class="title__card">
+            <p class="title__kicker">A very small office RPG</p>
+            <h1 class="title__name">The Water Cooler</h1>
+            <div class="title__cast" id="cast"></div>
+            <p class="title__blurb">
+              Everyone just got new AI tools. Everyone is sure they don't need anyone else anymore.
+            </p>
+            <button class="title__start" id="start" type="button">
+              <span class="only-keys">Press Space to start</span>
+              <span class="only-touch">Tap to start</span>
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <div class="dock" id="dock">
+        <div class="switcher" id="switcher" role="group" aria-label="Choose who to play as"></div>
+        <div class="hint" id="hint" aria-hidden="true"></div>
+      </div>
+
+      <footer class="help" id="help">
+        <span><kbd>Arrows</kbd> to move</span>
+        <span><kbd>Space</kbd> to talk</span>
+        <span><kbd>Tab</kbd> or <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> to switch character</span>
+      </footer>
+    </div>
+
+    <div class="touch" id="touch" aria-hidden="true">
+      <div class="dpad" id="dpad">
+        <span class="dpad__arrow dpad__arrow--up" data-d="up"></span>
+        <span class="dpad__arrow dpad__arrow--down" data-d="down"></span>
+        <span class="dpad__arrow dpad__arrow--left" data-d="left"></span>
+        <span class="dpad__arrow dpad__arrow--right" data-d="right"></span>
+      </div>
+      <div class="pad-buttons">
+        <button class="btn-swap" id="tSwap" type="button" tabindex="-1">Swap</button>
+        <button class="btn-a" id="tA" type="button" tabindex="-1">A</button>
+      </div>
+    </div>
+
+    <script src="dialogue.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>
