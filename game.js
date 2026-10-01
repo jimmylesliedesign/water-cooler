@@ -25,11 +25,8 @@
 
   const $ = (id) => document.getElementById(id);
   const el = {
-    bar: $('bar'),
     stage: $('stage'),
     canvas: $('game'),
-    dock: $('dock'),
-    help: $('help'),
     hint: $('hint'),
     switcher: $('switcher'),
     toast: $('toast'),
@@ -44,8 +41,10 @@
     sound: $('sound'),
     soundLabel: $('soundLabel'),
     dpad: $('dpad'),
-    tA: $('tA'),
-    tSwap: $('tSwap'),
+    btnA: $('btnA'),
+    btnB: $('btnB'),
+    btnSelect: $('btnSelect'),
+    btnStart: $('btnStart'),
   };
 
   // ---------------------------------------------------------------------------
@@ -1348,6 +1347,17 @@
 
   const dlg = { lines: null, i: 0, shown: 0, full: '', who: null, wait: 0, partner: null, lastChar: 0 };
 
+  // The untyped remainder stays in the layout (invisibly), so lines wrap in
+  // their final place and words never jump to the next line mid-word.
+  const typedText = document.createTextNode('');
+  const restText = document.createElement('span');
+  restText.className = 'dialogue__rest';
+  el.dlgText.append(typedText, restText);
+  function setTyped(n) {
+    typedText.data = dlg.full.slice(0, n);
+    restText.textContent = dlg.full.slice(n);
+  }
+
   function openDialogue(lines, partner) {
     if (!lines || !lines.length) return;
     state = 'dialogue';
@@ -1370,7 +1380,7 @@
     dlg.wait = 0.08;
     el.dialogue.dataset.who = id;
     el.dlgName.textContent = id === 'narrator' ? '' : NAMES[id];
-    el.dlgText.textContent = '';
+    setTyped(0);
     el.dlgLive.textContent = id === 'narrator' ? text : `${NAMES[id]}: ${text}`;
     el.dialogue.classList.add('is-typing');
     if (id !== 'narrator') paintPortrait(el.portrait, id);
@@ -1380,7 +1390,7 @@
   function advanceDialogue() {
     if (dlg.shown < dlg.full.length) {
       dlg.shown = dlg.full.length;
-      el.dlgText.textContent = dlg.full;
+      setTyped(dlg.full.length);
       el.dialogue.classList.remove('is-typing');
       return;
     }
@@ -1419,7 +1429,7 @@
         break;
       }
     }
-    el.dlgText.textContent = dlg.full.slice(0, dlg.lastChar);
+    setTyped(dlg.lastChar);
     if (dlg.lastChar >= dlg.full.length) {
       dlg.shown = dlg.full.length;
       el.dialogue.classList.remove('is-typing');
@@ -1529,7 +1539,7 @@
       [
         'N',
         touchUI
-          ? "You're The Designer. Walk with the pad, press A to talk, and tap Swap (or a face below) to become someone else."
+          ? "You're The Designer. Walk with the pad, press A to talk, and press B (or tap a face below) to become someone else."
           : "You're The Designer. Walk with the arrow keys, press Space to talk, and press Tab to become someone else.",
       ],
     ];
@@ -1572,40 +1582,82 @@
     else if (state === 'play' && target) interact(target);
   }
 
+  // The handheld's buttons mirror every input source (keys, mouse, touch), so a
+  // button stays pressed until all of the sources holding it have let go.
+  const shellButtons = { a: el.btnA, b: el.btnB, select: el.btnSelect, start: el.btnStart };
+  const holders = { a: new Set(), b: new Set(), select: new Set(), start: new Set() };
+
+  function hold(name, source, on) {
+    if (on) holders[name].add(source);
+    else holders[name].delete(source);
+    shellButtons[name].classList.toggle('is-down', holders[name].size > 0);
+  }
+
+  function releaseSource(source) {
+    for (const name in holders) if (holders[name].has(source)) hold(name, source, false);
+  }
+
+  function renderDpad() {
+    const x = Math.sign((keys.right ? 1 : 0) - (keys.left ? 1 : 0) + touchDir.x);
+    const y = Math.sign((keys.down ? 1 : 0) - (keys.up ? 1 : 0) + touchDir.y);
+    el.dpad.classList.toggle('is-up', y < 0);
+    el.dpad.classList.toggle('is-down', y > 0);
+    el.dpad.classList.toggle('is-left', x < 0);
+    el.dpad.classList.toggle('is-right', x > 0);
+  }
+
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const onLink = document.activeElement && document.activeElement.matches('a, #sound');
     if (MOVE_KEYS[e.code]) {
       keys[MOVE_KEYS[e.code]] = true;
+      renderDpad();
       e.preventDefault();
       return;
     }
     if (ACTION_KEYS.has(e.code)) {
       if (onLink && (e.code === 'Space' || e.code === 'Enter')) return;
       e.preventDefault();
+      hold('a', e.code, true);
       if (!e.repeat) action();
       return;
     }
     if (e.code === 'Tab' && state !== 'title' && !onLink) {
       e.preventDefault();
+      hold('b', e.code, true);
       cycleSwitch(e.shiftKey ? -1 : 1);
       return;
     }
-    if (e.code === 'KeyQ') return cycleSwitch(1);
+    if (e.code === 'KeyQ') {
+      hold('b', e.code, true);
+      return cycleSwitch(1);
+    }
     if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') {
       switchTo(IDS[Number(e.code.slice(-1)) - 1]);
       return;
     }
-    if (e.code === 'KeyM') toggleSound();
+    if (e.code === 'KeyM') {
+      hold('select', e.code, true);
+      if (!e.repeat) toggleSound();
+    }
   });
 
   window.addEventListener('keyup', (e) => {
-    if (MOVE_KEYS[e.code]) keys[MOVE_KEYS[e.code]] = false;
+    if (MOVE_KEYS[e.code]) {
+      keys[MOVE_KEYS[e.code]] = false;
+      renderDpad();
+    }
+    releaseSource(e.code);
   });
 
   window.addEventListener('blur', () => {
     keys.up = keys.down = keys.left = keys.right = false;
     touchDir.x = touchDir.y = 0;
+    for (const name in holders) {
+      holders[name].clear();
+      shellButtons[name].classList.remove('is-down');
+    }
+    renderDpad();
   });
 
   el.sound.addEventListener('click', () => {
@@ -1633,8 +1685,14 @@
     if (e.pointerType === 'touch') enableTouchUI();
   }, { capture: true });
 
+  // Throws if the pointer is no longer active, which must not swallow the press.
+  function capture(target, pointerId) {
+    try {
+      target.setPointerCapture(pointerId);
+    } catch {}
+  }
+
   // D-pad: slide your thumb around it, eight directions.
-  const arrows = [...el.dpad.querySelectorAll('.dpad__arrow')];
   let dpadPointer = null;
   function dpadFrom(e) {
     const r = el.dpad.getBoundingClientRect();
@@ -1642,29 +1700,25 @@
     const dy = e.clientY - (r.top + r.height / 2);
     touchDir.x = 0;
     touchDir.y = 0;
-    if (Math.hypot(dx, dy) > 12) {
+    if (Math.hypot(dx, dy) > r.width * 0.12) {
       const oct = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
       const map = {
         0: [1, 0], 1: [1, 1], 2: [0, 1], 3: [-1, 1], 4: [-1, 0], '-4': [-1, 0], '-3': [-1, -1], '-2': [0, -1], '-1': [1, -1],
       };
       [touchDir.x, touchDir.y] = map[oct];
     }
-    for (const a of arrows) {
-      const d = a.dataset.d;
-      const on = (d === 'up' && touchDir.y < 0) || (d === 'down' && touchDir.y > 0) || (d === 'left' && touchDir.x < 0) || (d === 'right' && touchDir.x > 0);
-      a.classList.toggle('is-on', on);
-    }
+    renderDpad();
   }
   function dpadEnd(e) {
     if (e.pointerId !== dpadPointer) return;
     dpadPointer = null;
     touchDir.x = touchDir.y = 0;
-    arrows.forEach((a) => a.classList.remove('is-on'));
+    renderDpad();
   }
   el.dpad.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     dpadPointer = e.pointerId;
-    el.dpad.setPointerCapture(e.pointerId);
+    capture(el.dpad, e.pointerId);
     dpadFrom(e);
   });
   el.dpad.addEventListener('pointermove', (e) => {
@@ -1673,54 +1727,48 @@
   el.dpad.addEventListener('pointerup', dpadEnd);
   el.dpad.addEventListener('pointercancel', dpadEnd);
 
-  function pressable(btn, fn) {
+  function pressable(name, fn) {
+    const btn = shellButtons[name];
     btn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      btn.classList.add('is-down');
+      capture(btn, e.pointerId);
+      hold(name, `p${e.pointerId}`, true);
       fn();
     });
-    const up = () => btn.classList.remove('is-down');
+    const up = (e) => hold(name, `p${e.pointerId}`, false);
     btn.addEventListener('pointerup', up);
     btn.addEventListener('pointercancel', up);
-    btn.addEventListener('pointerleave', up);
   }
-  pressable(el.tA, action);
-  pressable(el.tSwap, () => (state === 'title' ? start() : cycleSwitch(1)));
+  pressable('a', action);
+  pressable('b', () => (state === 'title' ? start() : cycleSwitch(1)));
+  pressable('select', toggleSound);
+  pressable('start', () => {
+    if (state === 'title') start();
+  });
 
   // ---------------------------------------------------------------------------
   // Layout
   // ---------------------------------------------------------------------------
 
+  // The screen's size comes from CSS. Match the canvas to its aspect ratio at
+  // 192 game pixels tall; anything narrower than the room makes the camera follow.
   function resize() {
     document.body.classList.toggle('is-touch', touchUI);
-    const portrait = window.innerHeight > window.innerWidth;
-    const reserve = touchUI && portrait ? 190 : 0;
-    const padX = touchUI ? 16 : 48;
-    const availW = window.innerWidth - padX;
-    const availH =
-      window.innerHeight - el.bar.offsetHeight - el.dock.offsetHeight - el.help.offsetHeight - reserve - 20;
-    let s = Math.min(availW / ROOM_W, availH / ROOM_H);
-    let w = ROOM_W;
-    if (s < 2 && availW / Math.max(1, availH) < 1.3) {
-      // Narrow screens: zoom in and let the camera follow the player.
-      s = Math.max(1, Math.min(2, availH / ROOM_H));
-      w = Math.min(ROOM_W, Math.floor(availW / s));
-    } else if (s >= 2) {
-      s = Math.floor(s);
+    const sw = el.stage.clientWidth;
+    const sh = el.stage.clientHeight;
+    if (!sw || !sh) return;
+    const w = clamp(Math.round((ROOM_H * sw) / sh), 1, ROOM_W);
+    if (w !== el.canvas.width || el.canvas.height !== ROOM_H) {
+      el.canvas.width = w;
+      el.canvas.height = ROOM_H;
+      mainCtx.imageSmoothingEnabled = false;
+      vignette = null;
     }
-    s = Math.max(0.5, s);
     viewW = w;
-    el.canvas.width = w;
-    el.canvas.height = ROOM_H;
-    mainCtx.imageSmoothingEnabled = false;
-    vignette = null;
-    el.stage.style.width = `${Math.round(w * s)}px`;
-    el.stage.style.height = `${Math.round(ROOM_H * s)}px`;
-    el.stage.style.setProperty('--s', s.toFixed(3));
-    el.dock.style.width = `${Math.round(w * s)}px`;
     camX = clamp(player().x - viewW / 2, 0, ROOM_W - viewW);
   }
   window.addEventListener('resize', resize);
+  if ('ResizeObserver' in window) new ResizeObserver(resize).observe(el.stage);
 
   // ---------------------------------------------------------------------------
   // Loop
