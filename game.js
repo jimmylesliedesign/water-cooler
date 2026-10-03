@@ -168,7 +168,7 @@
     designer: {
       pal: {
         O: '#16111c', H: '#2a2236', h: '#5a4a70', S: '#f3c9a8', s: '#dca382', E: '#2a2030',
-        R: '#f0a08a', G: '#6a6480', T: '#3e3952', t: '#2c2839', P: '#2c2935', F: '#efe9e0',
+        R: '#f0a08a', G: '#8a8298', T: '#3e3952', t: '#2c2839', P: '#2c2935', F: '#efe9e0',
       },
       rows: {
         down: [
@@ -177,8 +177,8 @@
           '.HHHHHHHHHHHH.',
           '.HHHHSSSSHHHH.',
           '.HHHSSSSSSHHH.',
-          '.HHGGSSSSGGHH.',
-          '.HHSGEGGEGSHH.',
+          '.HHGG.GG.GGHH.',
+          '.HHSSESSESSHH.',
           '.HHSSSSSSSSHH.',
           '.HHsSSSSSSsHH.',
           '..HHSSSSSSHH..',
@@ -244,7 +244,7 @@
           '.HHHHSSSSHHHH.',
           '.HHHSSSSSSHHH.',
           '.HHSS.SS.SSHH.',
-          '.HHSSESSSESSH.',
+          '.HHSSESSESSSH.',
           '.HHSSSSSSSSHH.',
           '.HHsRSSSSRsHH.',
           '..HHSSSSSSHH..',
@@ -310,7 +310,7 @@
           '.HHHHHSSSHHHH.',
           '.HHHSSSSSSHHH.',
           '.HHSS.SS.SSHH.',
-          '.HHSSESSSESSH.',
+          '.HHSSESSESSSH.',
           '.HHSSSSSSSSHH.',
           '.HHsRSSSSRsHH.',
           '..HHSSSSSSHH..',
@@ -1118,16 +1118,13 @@
     else p.dir = dy > 0 ? 'down' : 'up';
   }
 
-  const RING = { designer: '#f08a6e', engineer: '#7fc79a', pm: '#8ea3e8' };
-
   function drawPerson(p) {
     const x = Math.round(p.px);
     const y = Math.round(p.py);
     const fx = x + 8;
     const fy = y + 14;
     if (p.id === playerId && state !== 'title') {
-      ellipse(fx, fy, 7, 3, RING[p.id]);
-      ellipse(fx, fy, 6, 2, 'rgba(255, 255, 255, 0.35)');
+      ellipse(fx, fy, 7, 3, 'rgba(0, 0, 0, 0.3)');
     }
     ellipse(fx, fy, 5, 2, SHADOW);
     const view = p.dir === 'up' ? 'up' : p.dir === 'down' ? 'down' : 'side';
