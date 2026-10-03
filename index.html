@@ -8,7 +8,7 @@
       name="description"
       content="A cosy little pixel art game about a designer, an engineer and a product manager who are all sure AI means they don't need each other anymore."
     />
-    <meta name="theme-color" content="#1d1922" />
+    <meta name="theme-color" content="#1d1d1d" />
     <meta property="og:title" content="The Water Cooler" />
     <meta
       property="og:description"
@@ -26,31 +26,39 @@
     />
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
+  <body class="is-title">
     <div class="app">
       <header class="bar" id="bar">
         <a class="back" href="https://jimmyleslie.design">
           <span aria-hidden="true">&larr;</span> jimmyleslie.design
         </a>
-        <button class="sound" id="sound" type="button" aria-pressed="false">
-          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shape-rendering="crispEdges">
-            <path fill="currentColor" d="M2 6h3l4-3v10l-4-3H2z" />
-            <path class="sound__on" fill="currentColor" d="M11 5h1v6h-1zM13 3h1v10h-1z" />
-            <path class="sound__off" fill="currentColor" d="M11 6h1v1h-1zM12 7h1v1h-1zM13 8h1v1h-1zM13 6h1v1h-1zM11 8h1v1h-1z" />
-          </svg>
-          <span id="soundLabel">Sound off</span>
-        </button>
+        <div class="bar__tools">
+          <button class="tool" id="screenBtn" type="button" aria-pressed="false" aria-label="Toggle green screen">
+            <span id="screenLabel">Colour</span>
+          </button>
+          <button class="tool" id="shellBtn" type="button" aria-pressed="false" aria-label="Toggle shell colour">
+            <span id="shellLabel">Grey</span>
+          </button>
+          <button class="tool" id="sound" type="button" aria-pressed="false">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" shape-rendering="crispEdges">
+              <path fill="currentColor" d="M2 6h3l4-3v10l-4-3H2z" />
+              <path class="sound__on" fill="currentColor" d="M11 5h1v6h-1zM13 3h1v10h-1z" />
+              <path class="sound__off" fill="currentColor" d="M11 6h1v1h-1zM12 7h1v1h-1zM13 8h1v1h-1zM13 6h1v1h-1zM11 8h1v1h-1z" />
+            </svg>
+            <span id="soundLabel">Sound off</span>
+          </button>
+        </div>
       </header>
 
       <div class="device-wrap">
-        <div class="device">
+        <div class="device" id="device" data-shell="grey">
           <div class="device__ridge" aria-hidden="true"><span>&#9664;OFF&middot;ON&#9654;</span></div>
 
           <div class="bezel">
             <div class="bezel__strip" aria-hidden="true"><i></i><span>PIXEL OFFICE WITH STEREO SMALL TALK</span><i></i></div>
             <div class="led" aria-hidden="true"><span class="led__dot"></span><span class="led__label">BATTERY</span></div>
 
-            <div class="lcd">
+            <div class="lcd" id="lcd" data-screen="colour">
               <main class="stage" id="stage">
                 <canvas
                   id="game"
@@ -63,13 +71,18 @@
                 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
                 <div class="dialogue" id="dialogue" hidden>
-                  <div class="dialogue__portrait"><canvas id="portrait" width="14" height="12"></canvas></div>
+                  <div class="dialogue__portrait"><canvas id="portrait" width="16" height="14"></canvas></div>
                   <div class="dialogue__body">
                     <span class="dialogue__name" id="dlgName"></span>
                     <p class="dialogue__text" id="dlgText" aria-hidden="true"></p>
                   </div>
                   <span class="dialogue__next" aria-hidden="true"></span>
                   <p class="sr-only" id="dlgLive" aria-live="polite"></p>
+                </div>
+
+                <div class="menu" id="menu" hidden>
+                  <p class="menu__title">Pause</p>
+                  <ul class="menu__list" id="menuList" role="menu"></ul>
                 </div>
 
                 <div class="title" id="title">
@@ -166,7 +179,7 @@
       </div>
 
       <div class="dock" id="dock">
-        <div class="switcher" id="switcher" role="group" aria-label="Choose who to play as"></div>
+        <div class="switcher" id="switcher" role="group" aria-label="Choose who to play as" aria-hidden="true"></div>
         <div class="hint" id="hint" aria-hidden="true"></div>
       </div>
     </div>

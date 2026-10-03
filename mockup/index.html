@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>The Water Cooler: handheld mockup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #1d1922;
+        --cream: #f3e9d2;
+        --muted: #a99db0;
+        --font: 'Pixelify Sans', ui-monospace, 'SF Mono', Menlo, monospace;
+        --print-font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+        padding: 24px 16px;
+        background: radial-gradient(120% 80% at 50% 0%, #2a2431 0%, var(--bg) 62%);
+        color: var(--cream);
+        font-family: var(--font);
+        -webkit-font-smoothing: antialiased;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        touch-action: manipulation;
+      }
+
+      /* ---------- Themes ---------- */
+
+      .device {
+        --shell: #cbc7bf;
+        --shell-hi: #e6e2da;
+        --shell-lo: #a29d93;
+        --bezel: #5c5b68;
+        --btn: #a3245b;
+        --print: #2c3a85;
+        --stripe-1: #a3245b;
+        --stripe-2: #2c3a85;
+        --dpad: #2a2a30;
+        --rubber: #8f8c95;
+      }
+
+      .device[data-theme='paper'] {
+        --shell: #efe4cc;
+        --shell-hi: #fcf5e4;
+        --shell-lo: #cbbd9c;
+        --bezel: #3a3140;
+        --btn: #e0584a;
+        --print: #2b2230;
+        --stripe-1: #e0584a;
+        --stripe-2: #5aa8e0;
+        --dpad: #2b2230;
+        --rubber: #9a8f86;
+      }
+
+      .device[data-theme='night'] {
+        --shell: #362b3c;
+        --shell-hi: #4d4056;
+        --shell-lo: #211a26;
+        --bezel: #18141c;
+        --btn: #f2c46d;
+        --print: #f2c46d;
+        --stripe-1: #f2c46d;
+        --stripe-2: #8fd0f0;
+        --dpad: #141017;
+        --rubber: #5f5468;
+      }
+
+      /* ---------- Device ---------- */
+
+      .wrap {
+        width: min(380px, 90vw, calc((100dvh - 170px) * 90 / 148));
+        container-type: inline-size;
+      }
+
+      .device {
+        /* Everything is measured in millimetres of a 90 × 148 mm handheld. */
+        --mm: calc(100cqw / 90);
+        position: relative;
+        width: 100%;
+        aspect-ratio: 90 / 148;
+        border-radius: calc(var(--mm) * 3.5) calc(var(--mm) * 3.5) calc(var(--mm) * 19) calc(var(--mm) * 3.5);
+        background:
+          radial-gradient(120% 60% at 20% 0%, color-mix(in oklab, var(--shell-hi), transparent 30%), transparent 60%),
+          linear-gradient(165deg, var(--shell-hi) 0%, var(--shell) 38%, var(--shell) 70%, var(--shell-lo) 100%);
+        box-shadow:
+          inset 0 calc(var(--mm) * 0.6) calc(var(--mm) * 0.6) calc(var(--mm) * -0.2) rgba(255, 255, 255, 0.55),
+          inset calc(var(--mm) * -1) calc(var(--mm) * -1.4) calc(var(--mm) * 2.5) rgba(0, 0, 0, 0.18),
+          inset 0 0 0 calc(var(--mm) * 0.3) rgba(0, 0, 0, 0.08),
+          0 calc(var(--mm) * 1) calc(var(--mm) * 1.5) rgba(0, 0, 0, 0.35),
+          0 calc(var(--mm) * 6) calc(var(--mm) * 12) rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+        transition: background 300ms ease;
+      }
+
+      .grain {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.22;
+        mix-blend-mode: multiply;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        z-index: 5;
+      }
+
+      .ridge {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(var(--mm) * 6);
+        height: calc(var(--mm) * 0.5);
+        background: linear-gradient(rgba(0, 0, 0, 0.16) 0 50%, rgba(255, 255, 255, 0.5) 50%);
+      }
+
+      .ridge::before,
+      .ridge::after {
+        content: '';
+        position: absolute;
+        top: calc(var(--mm) * -6);
+        width: calc(var(--mm) * 0.5);
+        height: calc(var(--mm) * 6);
+        background: linear-gradient(90deg, rgba(0, 0, 0, 0.14) 0 50%, rgba(255, 255, 255, 0.45) 50%);
+      }
+
+      .ridge::before {
+        left: calc(var(--mm) * 6);
+      }
+
+      .ridge::after {
+        right: calc(var(--mm) * 6);
+      }
+
+      .ridge__label {
+        position: absolute;
+        left: calc(var(--mm) * 9);
+        top: calc(var(--mm) * -3.6);
+        font: 600 calc(var(--mm) * 1.7) / 1 var(--print-font);
+        letter-spacing: calc(var(--mm) * 0.15);
+        color: var(--print);
+        opacity: 0.7;
+      }
+
+      /* ---------- Screen ---------- */
+
+      .bezel {
+        position: absolute;
+        left: calc(var(--mm) * 7);
+        top: calc(var(--mm) * 10.5);
+        width: calc(var(--mm) * 76);
+        height: calc(var(--mm) * 58);
+        border-radius: calc(var(--mm) * 2) calc(var(--mm) * 2) calc(var(--mm) * 9) calc(var(--mm) * 2);
+        background: linear-gradient(170deg, color-mix(in oklab, var(--bezel), white 8%), var(--bezel) 60%, color-mix(in oklab, var(--bezel), black 15%));
+        box-shadow:
+          inset 0 calc(var(--mm) * 0.3) calc(var(--mm) * 0.5) rgba(0, 0, 0, 0.45),
+          0 calc(var(--mm) * 0.35) 0 rgba(255, 255, 255, 0.5),
+          0 calc(var(--mm) * -0.25) 0 rgba(0, 0, 0, 0.12);
+      }
+
+      .bezel::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        background: linear-gradient(125deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 35%, transparent 36%);
+      }
+
+      .bezel__strip {
+        position: absolute;
+        left: calc(var(--mm) * 4);
+        right: calc(var(--mm) * 4);
+        top: calc(var(--mm) * 2.6);
+        display: flex;
+        align-items: center;
+        gap: calc(var(--mm) * 1.4);
+      }
+
+      .bezel__strip i {
+        flex: 1;
+        height: calc(var(--mm) * 1);
+        background: linear-gradient(var(--stripe-1) 0 38%, transparent 38% 62%, var(--stripe-2) 62%);
+        opacity: 0.9;
+      }
+
+      .bezel__strip span {
+        font: 500 calc(var(--mm) * 1.75) / 1 var(--print-font);
+        letter-spacing: calc(var(--mm) * 0.1);
+        color: rgba(230, 228, 236, 0.75);
+        white-space: nowrap;
+      }
+
+      .led {
+        position: absolute;
+        left: calc(var(--mm) * 1.6);
+        top: calc(var(--mm) * 21);
+        width: calc(var(--mm) * 9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: calc(var(--mm) * 1.2);
+      }
+
+      .led__dot {
+        width: calc(var(--mm) * 2.2);
+        height: calc(var(--mm) * 2.2);
+        border-radius: 50%;
+        background: radial-gradient(circle at 40% 35%, #ffc2b3 0%, #ec3b2c 45%, #861309 100%);
+        box-shadow:
+          0 0 calc(var(--mm) * 1.4) calc(var(--mm) * 0.3) rgba(255, 70, 40, 0.55),
+          inset 0 calc(var(--mm) * -0.2) calc(var(--mm) * 0.3) rgba(0, 0, 0, 0.4);
+      }
+
+      .led__label {
+        font: 500 calc(var(--mm) * 1.4) / 1 var(--print-font);
+        letter-spacing: calc(var(--mm) * 0.08);
+        color: rgba(230, 228, 236, 0.65);
+      }
+
+      .lcd {
+        position: absolute;
+        left: calc(var(--mm) * 14);
+        top: calc(var(--mm) * 7.5);
+        width: calc(var(--mm) * 48);
+        height: calc(var(--mm) * 43);
+        border-radius: calc(var(--mm) * 0.6);
+        overflow: hidden;
+        background: #141217;
+        box-shadow: 0 0 0 calc(var(--mm) * 0.35) rgba(0, 0, 0, 0.35);
+      }
+
+      .lcd img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 50% 62%;
+        transition: filter 200ms ease;
+      }
+
+      .lcd__tint {
+        position: absolute;
+        inset: 0;
+        background: #9bbc0f;
+        mix-blend-mode: multiply;
+        opacity: 0;
+        transition: opacity 200ms ease;
+      }
+
+      .lcd[data-mode='green'] img {
+        filter: grayscale(1) contrast(1.15) brightness(1.15);
+      }
+
+      .lcd[data-mode='green'] .lcd__tint {
+        opacity: 1;
+      }
+
+      .lcd::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        box-shadow:
+          inset 0 calc(var(--mm) * 0.8) calc(var(--mm) * 1.2) rgba(0, 0, 0, 0.55),
+          inset 0 0 calc(var(--mm) * 0.4) rgba(0, 0, 0, 0.5);
+        background: linear-gradient(118deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.04) 30%, transparent 31%);
+      }
+
+      .brand {
+        position: absolute;
+        left: calc(var(--mm) * 7.5);
+        top: calc(var(--mm) * 71.5);
+        font: italic 700 calc(var(--mm) * 5) / 1 var(--font);
+        letter-spacing: calc(var(--mm) * 0.25);
+        color: var(--print);
+        text-shadow: 0 calc(var(--mm) * 0.2) 0 rgba(255, 255, 255, 0.35);
+      }
+
+      .brand small {
+        font-size: 0.5em;
+        letter-spacing: calc(var(--mm) * 0.4);
+        margin-right: calc(var(--mm) * 0.8);
+        vertical-align: 0.35em;
+      }
+
+      /* ---------- D-pad ---------- */
+
+      .dpad-well {
+        position: absolute;
+        left: calc(var(--mm) * 7);
+        top: calc(var(--mm) * 82);
+        width: calc(var(--mm) * 28);
+        height: calc(var(--mm) * 28);
+        border-radius: 50%;
+        background: radial-gradient(circle at 50% 55%, color-mix(in oklab, var(--shell), black 6%), color-mix(in oklab, var(--shell), black 2%) 70%);
+        box-shadow:
+          inset 0 calc(var(--mm) * 0.7) calc(var(--mm) * 1.1) rgba(0, 0, 0, 0.22),
+          0 calc(var(--mm) * 0.3) 0 rgba(255, 255, 255, 0.45);
+      }
+
+      .dpad {
+        position: absolute;
+        left: calc(var(--mm) * 10);
+        top: calc(var(--mm) * 85);
+        width: calc(var(--mm) * 22);
+        height: calc(var(--mm) * 22);
+        perspective: calc(var(--mm) * 55);
+        cursor: pointer;
+        touch-action: none;
+      }
+
+      .dpad.is-up {
+        --rx: 11deg;
+      }
+      .dpad.is-down {
+        --rx: -11deg;
+      }
+      .dpad.is-left {
+        --ry: -11deg;
+      }
+      .dpad.is-right {
+        --ry: 11deg;
+      }
+
+      .dpad__tilt {
+        width: 100%;
+        height: 100%;
+        transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+        transition: transform 70ms ease-out;
+      }
+
+      .dpad__body {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        filter: drop-shadow(0 calc(var(--mm) * 0.9) calc(var(--mm) * 0.6) rgba(0, 0, 0, 0.45))
+          drop-shadow(0 calc(var(--mm) * 0.3) calc(var(--mm) * 0.15) rgba(0, 0, 0, 0.35));
+        transition: filter 70ms ease-out;
+      }
+
+      .dpad:is(.is-up, .is-down, .is-left, .is-right) .dpad__body {
+        filter: drop-shadow(0 calc(var(--mm) * 0.45) calc(var(--mm) * 0.4) rgba(0, 0, 0, 0.45))
+          drop-shadow(0 calc(var(--mm) * 0.15) calc(var(--mm) * 0.1) rgba(0, 0, 0, 0.35));
+      }
+
+      .dpad__shade {
+        opacity: 0;
+        transition: opacity 70ms ease-out;
+      }
+
+      .dpad.is-up .dpad__shade--up,
+      .dpad.is-down .dpad__shade--down,
+      .dpad.is-left .dpad__shade--left,
+      .dpad.is-right .dpad__shade--right {
+        opacity: 1;
+      }
+
+      /* ---------- A / B ---------- */
+
+      .ab-slot {
+        position: absolute;
+        left: calc(var(--mm) * 52.25);
+        top: calc(var(--mm) * 88.4);
+        width: calc(var(--mm) * 31);
+        height: calc(var(--mm) * 13.5);
+        border-radius: calc(var(--mm) * 7);
+        transform: rotate(-25deg);
+        background: color-mix(in oklab, var(--shell), black 7%);
+        box-shadow:
+          inset 0 calc(var(--mm) * 0.6) calc(var(--mm) * 1) rgba(0, 0, 0, 0.22),
+          0 calc(var(--mm) * 0.3) 0 rgba(255, 255, 255, 0.45);
+      }
+
+      .btn {
+        position: absolute;
+        width: calc(var(--mm) * 10);
+        height: calc(var(--mm) * 10);
+        border-radius: 50%;
+        cursor: pointer;
+        touch-action: none;
+        background: radial-gradient(
+          circle at 38% 30%,
+          color-mix(in oklab, var(--btn), white 28%) 0%,
+          var(--btn) 45%,
+          color-mix(in oklab, var(--btn), black 28%) 100%
+        );
+        box-shadow:
+          0 calc(var(--mm) * 0.9) 0 color-mix(in oklab, var(--btn), black 50%),
+          0 calc(var(--mm) * 1.1) calc(var(--mm) * 0.3) rgba(0, 0, 0, 0.35),
+          0 calc(var(--mm) * 2) calc(var(--mm) * 1.8) rgba(0, 0, 0, 0.3),
+          inset 0 calc(var(--mm) * 0.3) calc(var(--mm) * 0.3) rgba(255, 255, 255, 0.3);
+        transition:
+          transform 60ms ease-out,
+          box-shadow 60ms ease-out,
+          filter 60ms ease-out;
+      }
+
+      .btn::after {
+        content: '';
+        position: absolute;
+        left: 22%;
+        top: 14%;
+        width: 34%;
+        height: 22%;
+        border-radius: 50%;
+        background: radial-gradient(rgba(255, 255, 255, 0.55), transparent 70%);
+        transform: rotate(-25deg);
+      }
+
+      .btn.is-down {
+        transform: translateY(calc(var(--mm) * 0.75));
+        filter: brightness(0.9);
+        box-shadow:
+          0 calc(var(--mm) * 0.15) 0 color-mix(in oklab, var(--btn), black 50%),
+          0 calc(var(--mm) * 0.3) calc(var(--mm) * 0.2) rgba(0, 0, 0, 0.35),
+          0 calc(var(--mm) * 0.6) calc(var(--mm) * 0.6) rgba(0, 0, 0, 0.2),
+          inset 0 calc(var(--mm) * 0.3) calc(var(--mm) * 0.4) rgba(0, 0, 0, 0.15);
+      }
+
+      .btn--a {
+        left: calc(var(--mm) * 71.5);
+        top: calc(var(--mm) * 86);
+      }
+
+      .btn--b {
+        left: calc(var(--mm) * 54);
+        top: calc(var(--mm) * 94.2);
+      }
+
+      .btn-label {
+        position: absolute;
+        font: italic 700 calc(var(--mm) * 3.2) / 1 var(--print-font);
+        letter-spacing: calc(var(--mm) * 0.2);
+        color: var(--print);
+      }
+
+      .btn-label--a {
+        left: calc(var(--mm) * 75.4);
+        top: calc(var(--mm) * 100.5);
+      }
+
+      .btn-label--b {
+        left: calc(var(--mm) * 57.9);
+        top: calc(var(--mm) * 108.7);
+      }
+
+      /* ---------- Start / Select ---------- */
+
+      .pill {
+        position: absolute;
+        width: calc(var(--mm) * 12);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: calc(var(--mm) * 1.3);
+        transform: translate(-50%, -50%) rotate(-25deg);
+      }
+
+      .pill--select {
+        left: calc(var(--mm) * 34);
+        top: calc(var(--mm) * 124);
+      }
+
+      .pill--start {
+        left: calc(var(--mm) * 49);
+        top: calc(var(--mm) * 124);
+      }
+
+      .pill__well {
+        width: calc(var(--mm) * 11);
+        height: calc(var(--mm) * 4);
+        padding: calc(var(--mm) * 0.7) calc(var(--mm) * 1);
+        border-radius: calc(var(--mm) * 2);
+        background: color-mix(in oklab, var(--shell), black 7%);
+        box-shadow:
+          inset 0 calc(var(--mm) * 0.4) calc(var(--mm) * 0.6) rgba(0, 0, 0, 0.22),
+          0 calc(var(--mm) * 0.25) 0 rgba(255, 255, 255, 0.45);
+      }
+
+      .pill__btn {
+        width: 100%;
+        height: 100%;
+        border-radius: calc(var(--mm) * 1.3);
+        cursor: pointer;
+        touch-action: none;
+        background: linear-gradient(
+          color-mix(in oklab, var(--rubber), white 18%),
+          var(--rubber) 55%,
+          color-mix(in oklab, var(--rubber), black 20%)
+        );
+        box-shadow:
+          0 calc(var(--mm) * 0.45) 0 color-mix(in oklab, var(--rubber), black 45%),
+          0 calc(var(--mm) * 0.7) calc(var(--mm) * 0.6) rgba(0, 0, 0, 0.3);
+        transition:
+          transform 60ms ease-out,
+          box-shadow 60ms ease-out;
+      }
+
+      .pill__btn.is-down {
+        transform: translateY(calc(var(--mm) * 0.4));
+        box-shadow:
+          0 calc(var(--mm) * 0.1) 0 color-mix(in oklab, var(--rubber), black 45%),
+          0 calc(var(--mm) * 0.2) calc(var(--mm) * 0.2) rgba(0, 0, 0, 0.3);
+      }
+
+      .pill__label {
+        font: italic 700 calc(var(--mm) * 1.9) / 1 var(--print-font);
+        letter-spacing: calc(var(--mm) * 0.2);
+        color: var(--print);
+      }
+
+      /* ---------- Speaker ---------- */
+
+      .speaker {
+        position: absolute;
+        left: calc(var(--mm) * 72);
+        top: calc(var(--mm) * 131);
+        display: flex;
+        gap: calc(var(--mm) * 2.2);
+        transform: translate(-50%, -50%) rotate(-28deg);
+      }
+
+      .speaker i {
+        width: calc(var(--mm) * 1.5);
+        height: calc(var(--mm) * 14);
+        border-radius: calc(var(--mm) * 0.8);
+        background: color-mix(in oklab, var(--shell), black 55%);
+        box-shadow:
+          inset 0 calc(var(--mm) * 0.5) calc(var(--mm) * 0.4) rgba(0, 0, 0, 0.6),
+          0 calc(var(--mm) * 0.25) 0 rgba(255, 255, 255, 0.45);
+      }
+
+      /* ---------- Panel ---------- */
+
+      .panel {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 12px 20px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .group__label {
+        margin-right: 4px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--cream);
+        font: inherit;
+        cursor: pointer;
+        transition:
+          background 120ms ease,
+          border-color 120ms ease;
+      }
+
+      .chip:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .chip[aria-pressed='true'] {
+        border-color: rgba(242, 196, 109, 0.7);
+        background: rgba(242, 196, 109, 0.12);
+      }
+
+      .chip__swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+      }
+
+      .legend {
+        width: 100%;
+        margin: 0;
+        text-align: center;
+      }
+
+      kbd {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--cream);
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="device" id="device" data-theme="classic" aria-hidden="true">
+        <div class="ridge"><span class="ridge__label">&#9664;OFF&middot;ON&#9654;</span></div>
+
+        <div class="bezel">
+          <div class="bezel__strip"><i></i><span>PIXEL OFFICE WITH STEREO SMALL TALK</span><i></i></div>
+          <div class="led"><span class="led__dot"></span><span class="led__label">BATTERY</span></div>
+          <div class="lcd" id="lcd" data-mode="colour">
+            <img src="screen.jpg" alt="" draggable="false" />
+            <div class="lcd__tint"></div>
+          </div>
+        </div>
+
+        <div class="brand"><small>THE</small>Water Cooler</div>
+
+        <div class="dpad-well"></div>
+        <div class="dpad" id="dpad">
+          <div class="dpad__tilt">
+            <svg class="dpad__body" viewBox="0 0 22 22">
+              <defs>
+                <linearGradient id="dpFill" gradientUnits="userSpaceOnUse" x1="3" y1="0" x2="19" y2="22">
+                  <stop offset="0" style="stop-color: color-mix(in oklab, var(--dpad), white 16%)" />
+                  <stop offset="0.55" style="stop-color: var(--dpad)" />
+                  <stop offset="1" style="stop-color: color-mix(in oklab, var(--dpad), black 35%)" />
+                </linearGradient>
+                <radialGradient id="dpHub" cx="0.5" cy="0.62" r="0.6">
+                  <stop offset="0" stop-color="#000" stop-opacity="0.45" />
+                  <stop offset="1" stop-color="#000" stop-opacity="0" />
+                </radialGradient>
+                <linearGradient id="shTop" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#000" stop-opacity="0.55" />
+                  <stop offset="1" stop-color="#000" stop-opacity="0" />
+                </linearGradient>
+                <linearGradient id="shBottom" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0" stop-color="#000" stop-opacity="0.55" />
+                  <stop offset="1" stop-color="#000" stop-opacity="0" />
+                </linearGradient>
+                <linearGradient id="shLeft" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#000" stop-opacity="0.55" />
+                  <stop offset="1" stop-color="#000" stop-opacity="0" />
+                </linearGradient>
+                <linearGradient id="shRight" x1="1" y1="0" x2="0" y2="0">
+                  <stop offset="0" stop-color="#000" stop-opacity="0.55" />
+                  <stop offset="1" stop-color="#000" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <g fill="url(#dpFill)">
+                <rect x="7.3" y="0" width="7.4" height="22" rx="1.3" />
+                <rect x="0" y="7.3" width="22" height="7.4" rx="1.3" />
+              </g>
+              <rect class="dpad__shade dpad__shade--up" x="7.3" y="0" width="7.4" height="8" rx="1.3" fill="url(#shTop)" />
+              <rect class="dpad__shade dpad__shade--down" x="7.3" y="14" width="7.4" height="8" rx="1.3" fill="url(#shBottom)" />
+              <rect class="dpad__shade dpad__shade--left" x="0" y="7.3" width="8" height="7.4" rx="1.3" fill="url(#shLeft)" />
+              <rect class="dpad__shade dpad__shade--right" x="14" y="7.3" width="8" height="7.4" rx="1.3" fill="url(#shRight)" />
+              <g fill="#000" fill-opacity="0.38">
+                <polygon points="11,2 9.5,4.3 12.5,4.3" />
+                <polygon points="11,20 9.5,17.7 12.5,17.7" />
+                <polygon points="2,11 4.3,9.5 4.3,12.5" />
+                <polygon points="20,11 17.7,9.5 17.7,12.5" />
+              </g>
+              <circle cx="11" cy="11" r="2.3" fill="url(#dpHub)" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="ab-slot"></div>
+        <div class="btn btn--b" data-btn="b"></div>
+        <div class="btn btn--a" data-btn="a"></div>
+        <span class="btn-label btn-label--b">B</span>
+        <span class="btn-label btn-label--a">A</span>
+
+        <div class="pill pill--select">
+          <div class="pill__well"><div class="pill__btn" data-btn="select"></div></div>
+          <span class="pill__label">SELECT</span>
+        </div>
+        <div class="pill pill--start">
+          <div class="pill__well"><div class="pill__btn" data-btn="start"></div></div>
+          <span class="pill__label">START</span>
+        </div>
+
+        <div class="speaker"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+        <div class="grain"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="group" id="themes">
+        <span class="group__label">Shell</span>
+        <button class="chip" type="button" data-theme="classic" aria-pressed="true">
+          <span class="chip__swatch" style="background: #cbc7bf"></span>Classic
+        </button>
+        <button class="chip" type="button" data-theme="paper" aria-pressed="false">
+          <span class="chip__swatch" style="background: #efe4cc"></span>Paper
+        </button>
+        <button class="chip" type="button" data-theme="night" aria-pressed="false">
+          <span class="chip__swatch" style="background: #362b3c"></span>Night
+        </button>
+      </div>
+      <div class="group" id="modes">
+        <span class="group__label">Screen</span>
+        <button class="chip" type="button" data-mode="colour" aria-pressed="true">Colour</button>
+        <button class="chip" type="button" data-mode="green" aria-pressed="false">Green</button>
+      </div>
+      <p class="legend">
+        <kbd>Arrows</kbd> / <kbd>WASD</kbd> D-pad &middot; <kbd>Space</kbd> A &middot; <kbd>Tab</kbd> / <kbd>Q</kbd> B
+        &middot; <kbd>M</kbd> Select
+      </p>
+    </div>
+
+    <script>
+      (() => {
+        const device = document.getElementById('device');
+        const lcd = document.getElementById('lcd');
+        const dpad = document.getElementById('dpad');
+        const buttons = Object.fromEntries(
+          [...document.querySelectorAll('[data-btn]')].map((b) => [b.dataset.btn, b]),
+        );
+
+        const MOVE_KEYS = {
+          ArrowUp: 'up', KeyW: 'up',
+          ArrowDown: 'down', KeyS: 'down',
+          ArrowLeft: 'left', KeyA: 'left',
+          ArrowRight: 'right', KeyD: 'right',
+        };
+        const BUTTON_KEYS = {
+          Space: 'a', Enter: 'a', KeyE: 'a',
+          Tab: 'b', KeyQ: 'b',
+          KeyM: 'select',
+        };
+
+        const keyDirs = { up: false, down: false, left: false, right: false };
+        const pointerDir = { x: 0, y: 0 };
+        const holders = new Map(Object.keys(buttons).map((name) => [name, new Set()]));
+
+        function renderDpad() {
+          const x = Math.sign((keyDirs.right ? 1 : 0) - (keyDirs.left ? 1 : 0) + pointerDir.x);
+          const y = Math.sign((keyDirs.down ? 1 : 0) - (keyDirs.up ? 1 : 0) + pointerDir.y);
+          dpad.classList.toggle('is-up', y < 0);
+          dpad.classList.toggle('is-down', y > 0);
+          dpad.classList.toggle('is-left', x < 0);
+          dpad.classList.toggle('is-right', x > 0);
+        }
+
+        function hold(name, source, on) {
+          const set = holders.get(name);
+          if (on) set.add(source);
+          else set.delete(source);
+          buttons[name].classList.toggle('is-down', set.size > 0);
+        }
+
+        window.addEventListener('keydown', (e) => {
+          if (e.metaKey || e.ctrlKey || e.altKey) return;
+          if (MOVE_KEYS[e.code]) {
+            e.preventDefault();
+            keyDirs[MOVE_KEYS[e.code]] = true;
+            renderDpad();
+          } else if (BUTTON_KEYS[e.code]) {
+            e.preventDefault();
+            hold(BUTTON_KEYS[e.code], e.code, true);
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          if (MOVE_KEYS[e.code]) {
+            keyDirs[MOVE_KEYS[e.code]] = false;
+            renderDpad();
+          } else if (BUTTON_KEYS[e.code]) {
+            hold(BUTTON_KEYS[e.code], e.code, false);
+          }
+        });
+
+        window.addEventListener('blur', () => {
+          Object.keys(keyDirs).forEach((d) => (keyDirs[d] = false));
+          pointerDir.x = pointerDir.y = 0;
+          holders.forEach((set, name) => {
+            set.clear();
+            buttons[name].classList.remove('is-down');
+          });
+          renderDpad();
+        });
+
+        for (const [name, el] of Object.entries(buttons)) {
+          el.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            el.setPointerCapture(e.pointerId);
+            hold(name, `p${e.pointerId}`, true);
+          });
+          const release = (e) => hold(name, `p${e.pointerId}`, false);
+          el.addEventListener('pointerup', release);
+          el.addEventListener('pointercancel', release);
+        }
+
+        // Slide a finger or cursor around the cross for eight directions.
+        let dpadPointer = null;
+        function dpadFrom(e) {
+          const r = dpad.getBoundingClientRect();
+          const dx = e.clientX - (r.left + r.width / 2);
+          const dy = e.clientY - (r.top + r.height / 2);
+          pointerDir.x = pointerDir.y = 0;
+          if (Math.hypot(dx, dy) > r.width * 0.12) {
+            const angle = Math.atan2(dy, dx);
+            const oct = Math.round(angle / (Math.PI / 4));
+            pointerDir.x = Math.round(Math.cos((oct * Math.PI) / 4));
+            pointerDir.y = Math.round(Math.sin((oct * Math.PI) / 4));
+          }
+          renderDpad();
+        }
+        function dpadEnd(e) {
+          if (e.pointerId !== dpadPointer) return;
+          dpadPointer = null;
+          pointerDir.x = pointerDir.y = 0;
+          renderDpad();
+        }
+        dpad.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          dpadPointer = e.pointerId;
+          dpad.setPointerCapture(e.pointerId);
+          dpadFrom(e);
+        });
+        dpad.addEventListener('pointermove', (e) => {
+          if (e.pointerId === dpadPointer) dpadFrom(e);
+        });
+        dpad.addEventListener('pointerup', dpadEnd);
+        dpad.addEventListener('pointercancel', dpadEnd);
+
+        function chipGroup(groupId, attr, apply) {
+          const chips = [...document.querySelectorAll(`#${groupId} .chip`)];
+          chips.forEach((chip) =>
+            chip.addEventListener('click', () => {
+              chips.forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
+              apply(chip.dataset[attr]);
+              chip.blur();
+            }),
+          );
+        }
+        chipGroup('themes', 'theme', (v) => (device.dataset.theme = v));
+        chipGroup('modes', 'mode', (v) => (lcd.dataset.mode = v));
+      })();
+    </script>
+  </body>
+</html>

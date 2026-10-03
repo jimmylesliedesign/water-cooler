@@ -24,7 +24,10 @@ Then open http://localhost:4321.
 
 - Walk: arrow keys / WASD (touch: D-pad)
 - Talk / continue: Space, Enter or E (touch: A)
-- Switch character: Tab, Q or 1 / 2 / 3 (touch: Swap, or tap a face)
+- Switch character: Tab, Q or 1 / 2 / 3 (touch: B, or tap a face)
+- Pause menu: Esc or P (touch: Start)
+- Green screen: G, or the toggle in the header
+- Shell colour: in the header, or Start → Shell
 - Sound: M, or the toggle in the top right (off by default)
 
 ## Deploy

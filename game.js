@@ -3,13 +3,18 @@
 
   const { TALKS, IDLE, PROPS } = window.WC_SCRIPT;
 
-  const ROOM_W = 320;
-  const ROOM_H = 192;
-  const FLOOR_TOP = 45;
-  const FLOOR_BOTTOM = 186;
+  // The office is a grid of 16px tiles, like a GBA interior.
+  const T = 16;
+  const COLS = 21;
+  const ROWS = 12;
+  const WALL_ROWS = 3;
+  const ROOM_W = COLS * T;
+  const ROOM_H = ROWS * T;
   const OUT = '#2b2230';
-  const SHADOW = 'rgba(58, 34, 32, 0.2)';
-  const WALK_SPEED = 56;
+  const SHADOW = 'rgba(58, 34, 32, 0.22)';
+  // One tile per 16 frames at 60fps, the classic walking pace.
+  const STEP_TIME = 16 / 60;
+  const TURN_DELAY = 0.09;
 
   const IDS = ['designer', 'engineer', 'pm'];
   const NAMES = {
@@ -25,6 +30,8 @@
 
   const $ = (id) => document.getElementById(id);
   const el = {
+    device: $('device'),
+    lcd: $('lcd'),
     stage: $('stage'),
     canvas: $('game'),
     hint: $('hint'),
@@ -38,8 +45,14 @@
     title: $('title'),
     start: $('start'),
     cast: $('cast'),
+    menu: $('menu'),
+    menuList: $('menuList'),
     sound: $('sound'),
     soundLabel: $('soundLabel'),
+    screenBtn: $('screenBtn'),
+    screenLabel: $('screenLabel'),
+    shellBtn: $('shellBtn'),
+    shellLabel: $('shellLabel'),
     dpad: $('dpad'),
     btnA: $('btnA'),
     btnB: $('btnB'),
@@ -68,7 +81,7 @@
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   let ctx = null;
-  const mainCtx = el.canvas.getContext('2d');
+  const mainCtx = el.canvas.getContext('2d', { willReadFrequently: true });
 
   function R(x, y, w, h, col) {
     ctx.fillStyle = col;
@@ -94,6 +107,12 @@
     ctx = c;
     fn();
     ctx = prev;
+  }
+  function shifted(dx, dy, fn) {
+    ctx.save();
+    ctx.translate(dx, dy);
+    fn();
+    ctx.restore();
   }
 
   // Tiny 3x5 pixel font for wall signage.
@@ -129,200 +148,220 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Character sprites (12x18 pixel maps, auto-outlined)
+  // Character sprites (14x20 pixel maps, auto-outlined to 16x22)
   // ---------------------------------------------------------------------------
+
+  const LEGS = {
+    front: [
+      ['...PPPPPPPP...', '...PP....PP...', '...FF....FF...'],
+      ['...PPPPPPPP...', '...PP....FF...', '...FF.........'],
+      ['...PPPPPPPP...', '...FF....PP...', '........FF....'],
+    ],
+    side: [
+      ['....PPPPPP....', '.....PPPP.....', '.....FFFFF....'],
+      ['....PPPPPP....', '....PP..PP....', '...FF....FF...'],
+      ['....PPPPPP....', '.....PPPP.....', '....FFFF......'],
+    ],
+  };
 
   const CHARS = {
     designer: {
       pal: {
-        H: '#2a2030', h: '#4a3a55', u: '#5c4c60', S: '#f3c9a8', R: '#f0a08a', E: '#2a2030', G: '#4a4258',
-        T: '#3b3647', t: '#2c2836', P: '#2f2b3a', F: '#f2efe8', O: '#1c1622',
+        O: '#16111c', H: '#2a2236', h: '#5a4a70', S: '#f3c9a8', s: '#dca382', E: '#2a2030',
+        R: '#f0a08a', G: '#6a6480', T: '#3e3952', t: '#2c2839', P: '#2c2935', F: '#efe9e0',
       },
       rows: {
         down: [
-          '............',
-          '...HHhHH....',
-          '..HHHHHHHH..',
-          '.HHHHHHHHHH.',
-          '.uHHHHHHHHu.',
-          '.uSSSSSSSSu.',
-          '.SGEGSSGEGS.',
-          '.SRGSSSSGRS.',
-          '..SSSSSSSS..',
-          '...TTTTTT...',
-          '..TTTTTTTT..',
-          '.TTTTTTTTTT.',
-          '.TtTTTTTTtT.',
-          '.STTTTTTTTS.',
-          '..TTTTTTTT..',
+          '....HHHHHH....',
+          '..HHhhHHHHHH..',
+          '.HHHHHHHHHHHH.',
+          '.HHHHSSSSHHHH.',
+          '.HHHSSSSSSHHH.',
+          '.HHGGSSSSGGHH.',
+          '.HHSGEGGEGSHH.',
+          '.HHSSSSSSSSHH.',
+          '.HHsSSSSSSsHH.',
+          '..HHSSSSSSHH..',
+          '...HssSSssH...',
+          '....TTTTTT....',
+          '...TTTTTTTT...',
+          '..TTTTTTTTTT..',
+          '.TtTTTTTTTTTt.',
+          '.STTTTTTTTTTS.',
+          '..TTTTTTTTTT..',
         ],
         up: [
-          '............',
-          '...HHhHH....',
-          '..HHHHHHHH..',
-          '.HHHHHHHHHH.',
-          '.uHHHHHHHHu.',
-          '.uHHHHHHHHu.',
-          '.uuuuuuuuuu.',
-          '.SuuuuuuuuS.',
-          '..SSSSSSSS..',
-          '...TTTTTT...',
-          '..TTTTTTTT..',
-          '.TTTTTTTTTT.',
-          '.TtTTTTTTtT.',
-          '.STTTTTTTTS.',
-          '..TTTTTTTT..',
+          '....HHHHHH....',
+          '..HHhhHHHHHH..',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHhhhhHHHH.',
+          '..HHHHHHHHHH..',
+          '...HHHHHHHH...',
+          '....TTTTTT....',
+          '...TTTTTTTT...',
+          '..TTTTTTTTTT..',
+          '.TTTTTTTTTTTt.',
+          '.STTTTTTTTTTS.',
+          '..TTTTTTTTTT..',
         ],
         side: [
-          '............',
-          '...HHhHH....',
-          '..HHHHHHHH..',
-          '.HHHHHHHHHH.',
-          '.uHHHHHHHHH.',
-          '.uuSSSSSSSS.',
-          '.uuSGGGGEGS.',
-          '.uSSSSSSGRS.',
-          '..SSSSSSSS..',
-          '....TTTTT...',
-          '...TTTTTT...',
-          '...TTTTTT...',
-          '...TTtTTT...',
-          '...TTSTTT...',
-          '...TTTTTT...',
+          '....HHHHHH....',
+          '..HHhhHHHHH...',
+          '.HHHHHHHHHHH..',
+          '.HHHHHHSSHHH..',
+          '.HHHHHSSSSHH..',
+          '.HHHHGGSSSSH..',
+          '.HHHHSSGESSH..',
+          '.HHHHSSSSSSH..',
+          '.HHHHSsSSSRs..',
+          '..HHHssSSSs...',
+          '...HHHssss....',
+          '....TTTTTT....',
+          '....TTTTTTT...',
+          '....TTTTTTT...',
+          '....TTtTTTt...',
+          '....TTSTTTT...',
+          '....TTTTTTT...',
         ],
       },
     },
     engineer: {
       pal: {
-        H: '#5b3a24', h: '#7d5434', S: '#c68d66', R: '#d9806a', E: '#2a2030', T: '#6e9a7c', t: '#58806a',
-        W: '#f2efe8', K: '#2f2b3a', P: '#465a85', F: '#7a5236',
+        O: '#2b1d14', H: '#6b4428', h: '#8f6339', S: '#c98f68', s: '#a87252', E: '#2a2030',
+        R: '#d9806a', T: '#6e9a7c', t: '#56806a', W: '#f2efe8', K: '#34303c', P: '#465a85',
+        F: '#7a5236',
       },
       rows: {
         down: [
-          '............',
-          '....HHHH....',
-          '..HHHhHHHH..',
-          '.HHHhHHHHHH.',
-          '.HHHSSHHHHH.',
-          '.HSSSSSSSSH.',
-          '.HSESSSSESH.',
-          '.HRESSSSERH.',
-          '.HSSSSSSSSH.',
-          '.HKKTTTTKKH.',
-          '.TKKTTTTKKT.',
-          '.TTTWTTWTTT.',
-          '.TTTWTTWTTT.',
-          '.STttttttTS.',
-          '..TTTTTTTT..',
+          '....HHHHHH....',
+          '..HHHhHHHHHH..',
+          '.HHHHHHHHHHHH.',
+          '.HHHHSSSSHHHH.',
+          '.HHHSSSSSSHHH.',
+          '.HHSS.SS.SSHH.',
+          '.HHSSESSSESSH.',
+          '.HHSSSSSSSSHH.',
+          '.HHsRSSSSRsHH.',
+          '..HHSSSSSSHH..',
+          '...HssSSssH...',
+          '....KKTTKK....',
+          '...TKKTTKKT...',
+          '..TTTTWTTTTT..',
+          '.TTTTWTTWTTTt.',
+          '.SsTtttttttsS.',
+          '..TTTTTTTTTT..',
         ],
         up: [
-          '............',
-          '....HHHH....',
-          '..HHHhHHHH..',
-          '.HHHhHHHHHH.',
-          '.HHHHHHHHHH.',
-          '.HHHHHHHHHH.',
-          '.HHHHHHHHHH.',
-          '.HHHHHHHHHH.',
-          '.HHHHHHHHHH.',
-          '.THHHHHHHHT.',
-          '.TTHHHHHHTT.',
-          '.TTTTTTTTTT.',
-          '.TTTTTTTTTT.',
-          '.STTTTTTTTS.',
-          '..TTTTTTTT..',
+          '....HHHHHH....',
+          '..HHHhHHHHHH..',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '..HHHHHHHHHH..',
+          '...sHHHHHHs...',
+          '....KKTTKK....',
+          '...TKKTTKKT...',
+          '..TTTTTTTTTT..',
+          '.TTTTTTTTTTTt.',
+          '.STTTTTTTTTTS.',
+          '..TTTTTTTTTT..',
         ],
         side: [
-          '............',
-          '....HHHH....',
-          '..HHHhHHHH..',
-          '.HHHhHHHHHH.',
-          '.HHHHHHHSHH.',
-          '.HHHHSSSSSS.',
-          '.HHHSSSSESS.',
-          '.HHHSSSSERS.',
-          '.HHHSSSSSS..',
-          '.HHtTTKK....',
-          '..ttTTKKT...',
-          '...TTTTTT...',
-          '...TTtTTT...',
-          '...TTSTTT...',
-          '...TTTTTT...',
+          '....HHHHHH....',
+          '..HHHhHHHHH...',
+          '.HHHHHHHHHHH..',
+          '.HHHHHHHSHHH..',
+          '.HHHHHSSSSHH..',
+          '.HHHHSSSSSSH..',
+          '.HHHHsSSSESH..',
+          '.HHHHsSSSSSH..',
+          '.HHHHsSSSSRs..',
+          '..HHHssSSSs...',
+          '...HHHssss....',
+          '....KKKTTT....',
+          '....TKKTTTT...',
+          '....TTTTTTT...',
+          '....TTTTTTt...',
+          '....TTSTTTt...',
+          '....TtTTTTt...',
         ],
       },
     },
     pm: {
       pal: {
-        H: '#d4a24c', h: '#e8c070', S: '#f0c09a', R: '#ef9e86', E: '#2a2030', T: '#34426e',
-        U: '#b6d4ee', L: '#e05a4f', Y: '#f7f3ea', P: '#c9b089', F: '#6b4429',
+        O: '#2a2238', H: '#e0b050', h: '#f4d68a', S: '#f2c4a0', s: '#d9a07e', E: '#2a2030',
+        R: '#ef9e86', T: '#34426e', t: '#262f52', U: '#bcd8f0', L: '#e05a4f', Y: '#f7f3ea',
+        P: '#c9b089', F: '#6b4429',
       },
       rows: {
         down: [
-          '............',
-          '....HHHH....',
-          '..HHHHHHHH..',
-          '.HHHHHHhhHH.',
-          '.HHHHHHSSSH.',
-          '.HSSSSSSSSH.',
-          '.SSESSSSESS.',
-          '.SRESSSSERS.',
-          '..SSSSSSSS..',
-          '...ULUULU...',
-          '..TTLUULTT..',
-          '.UTTULLUTTU.',
-          '.UTTUYYUTTU.',
-          '.STTUYYUTTS.',
-          '..TTTTTTTT..',
+          '....HHHHHH....',
+          '..HHHHHHhhHH..',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHSSSHHHH.',
+          '.HHHSSSSSSHHH.',
+          '.HHSS.SS.SSHH.',
+          '.HHSSESSSESSH.',
+          '.HHSSSSSSSSHH.',
+          '.HHsRSSSSRsHH.',
+          '..HHSSSSSSHH..',
+          '...HssSSssH...',
+          '....TTUUTT....',
+          '...TTLULTLT...',
+          '..TTTTULLTTT..',
+          '.TTTTUYYUTTTt.',
+          '.SsTTUYYUTTsS.',
+          '..TTTTTTTTTT..',
         ],
         up: [
-          '............',
-          '....HHHH....',
-          '..HHHHHHHH..',
-          '.HHHHHHHHHH.',
-          '.HHHHHHHHHH.',
-          '.HHHHHHHHHH.',
-          '.HHHHHHHHHH.',
-          '.SHHHHHHHHS.',
-          '..SSSSSSSS..',
-          '...ULLLLU...',
-          '..TTTTTTTT..',
-          '.UTTTTTTTTU.',
-          '.UTTTTTTTTU.',
-          '.STTTTTTTTS.',
-          '..TTTTTTTT..',
+          '....HHHHHH....',
+          '..HHHHHHhhHH..',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '.HHHHHHHHHHHH.',
+          '..HHHHHHHHHH..',
+          '...sHHHHHHs...',
+          '....TTLLTT....',
+          '...TTTTTTTT...',
+          '..TTTTTTTTTT..',
+          '.TTTTTTTTTTTt.',
+          '.STTTTTTTTTTS.',
+          '..TTTTTTTTTT..',
         ],
         side: [
-          '............',
-          '....HHHH....',
-          '..HHHHHHHH..',
-          '.HHHHHHHHHH.',
-          '.HHHHHHSSSH.',
-          '.HHHSSSSSSS.',
-          '.HHSSSSSESS.',
-          '.HSSSSSSERS.',
-          '..SSSSSSSS..',
-          '....UUUL....',
-          '...TTTTLT...',
-          '...TTUTYT...',
-          '...TTUTYT...',
-          '...TTSTTT...',
-          '...TTTTTT...',
+          '....HHHHHH....',
+          '..HHHHHHhhH...',
+          '.HHHHHHHHHHH..',
+          '.HHHHHHHSSHH..',
+          '.HHHHHSSSSSH..',
+          '.HHHHSSSSSSH..',
+          '.HHHHsSSSESH..',
+          '.HHHHsSSSSSH..',
+          '.HHHHsSSSSRs..',
+          '..HHHssSSSs...',
+          '...HHHssss....',
+          '....TTUUTT....',
+          '....TTLUTTT...',
+          '....TTTLTTT...',
+          '....TTSTYTt...',
+          '....TTSTTTt...',
+          '....TtTTTTt...',
         ],
       },
     },
-  };
-
-  const LEGS = {
-    front: [
-      ['..PPPPPPPP..', '..PPP..PPP..', '..FFF..FFF..'],
-      ['..PPPPPPPP..', '..PPP..FFF..', '..FFF.......'],
-      ['..PPPPPPPP..', '..FFF..PPP..', '.......FFF..'],
-    ],
-    side: [
-      ['...PPPPPP...', '....PPPP....', '....FFFFF...'],
-      ['...PPPPPP...', '...PP..PP...', '..FF....FF..'],
-      ['...PPPPPP...', '....PPPP....', '...FFFF.....'],
-    ],
   };
 
   const AI_PAL = { B: '#ece8f6', b: '#b9b2d6', D: '#2d2b4f', C: '#7ef0dc', Y: '#ffd36b' };
@@ -368,6 +407,7 @@
     return c;
   }
 
+  // Closing the top row of each eye leaves the bottom row as a shut-eye line.
   function blinkRows(rows, from = 'E', to = 'S') {
     let done = false;
     return rows.map((r) => {
@@ -395,136 +435,218 @@
   const aiSprite = buildSprite(AI_ROWS, AI_PAL);
   const aiBlink = buildSprite(blinkRows(AI_ROWS, 'C', 'D'), AI_PAL);
 
-  function paintPortrait(canvas, id) {
-    const c = canvas.getContext('2d');
+  // ---------------------------------------------------------------------------
+  // Screen modes
+  // ---------------------------------------------------------------------------
+
+  // Four shades of pea soup, picked by brightness like the original LCD.
+  const GREENS = [
+    [15, 56, 15],
+    [48, 98, 48],
+    [139, 172, 15],
+    [155, 188, 15],
+  ];
+  const GREEN_LUT = new Uint8Array(256);
+  for (let l = 0; l < 256; l++) GREEN_LUT[l] = l < 72 ? 0 : l < 138 ? 1 : l < 196 ? 2 : 3;
+
+  let screenMode = 'colour';
+  let shellTheme = 'grey';
+
+  function quantize(c, w, h) {
+    const img = c.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] === 0) continue;
+      const g = GREENS[GREEN_LUT[(d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8]];
+      d[i] = g[0];
+      d[i + 1] = g[1];
+      d[i + 2] = g[2];
+    }
+    c.putImageData(img, 0, 0);
+  }
+
+  function finishSmallCanvas(canvas) {
+    if (screenMode === 'green') quantize(canvas.getContext('2d'), canvas.width, canvas.height);
+  }
+
+  function paintPortrait(canvas, id, green = false) {
+    const c = canvas.getContext('2d', { willReadFrequently: true });
     c.imageSmoothingEnabled = false;
     c.clearRect(0, 0, canvas.width, canvas.height);
-    if (id === 'ai') c.drawImage(aiSprite, 0, 0);
-    else c.drawImage(sprites[id].down[0], 0, 0, 14, 12, 0, 0, 14, 12);
+    if (id === 'ai') c.drawImage(aiSprite, 1, 1);
+    else c.drawImage(sprites[id].down[0], 0, 0, 16, 14, 0, 0, 16, 14);
+    if (green) finishSmallCanvas(canvas);
   }
 
   // ---------------------------------------------------------------------------
-  // The office
+  // The office: floor, walls and everything fixed to them
   // ---------------------------------------------------------------------------
+
+  const RUG = { x: 7, y: 5, w: 7, h: 4 };
 
   const bg = (() => {
     const [c, x] = makeCanvas(ROOM_W, ROOM_H);
     withCtx(x, () => {
-      // Back wall
-      R(0, 0, ROOM_W, FLOOR_TOP, '#f1e3c6');
-      for (let i = 0; i < ROOM_W; i += 8) R(i, 2, 1, 28, '#eadab9');
+      // Wallpaper, with a small motif centred on every tile.
+      R(0, 0, ROOM_W, 32, '#f1e3c6');
+      for (let i = 0; i < ROOM_W; i += 4) R(i, 2, 1, 28, i % 8 ? '#eee0c1' : '#e8d8b6');
+      for (let tx = 0; tx < COLS; tx++) {
+        const cx = tx * T + 8;
+        P(cx, 9, '#dcc9a3');
+        P(cx - 1, 10, '#dcc9a3');
+        P(cx + 1, 10, '#dcc9a3');
+        P(cx, 11, '#dcc9a3');
+        P(cx, 23, '#e2d1ae');
+      }
       R(0, 0, ROOM_W, 2, '#7a5238');
-      R(0, 30, ROOM_W, 1, '#7f9874');
-      R(0, 31, ROOM_W, 1, '#c7d6bc');
-      R(0, 32, ROOM_W, 10, '#a9c09d');
-      for (let i = 6; i < ROOM_W; i += 12) R(i, 33, 1, 8, '#91aa86');
-      R(0, 42, ROOM_W, 2, '#6f5444');
-      R(0, 44, ROOM_W, 1, '#5a4236');
+      R(0, 2, ROOM_W, 1, '#9a6c4a');
+
+      // Wainscot panels, one per tile.
+      R(0, 30, ROOM_W, 1, '#6f8a66');
+      R(0, 31, ROOM_W, 1, '#d2dfc6');
+      for (let tx = 0; tx < COLS; tx++) {
+        const px = tx * T;
+        R(px, 32, T, 12, '#a9c09d');
+        R(px + 2, 34, T - 4, 1, '#c2d4b6');
+        R(px + 2, 34, 1, 8, '#c2d4b6');
+        R(px + 2, 42, T - 4, 1, '#8ba57f');
+        R(px + T - 3, 34, 1, 9, '#8ba57f');
+        R(px, 32, 1, 12, '#93ad87');
+      }
+      R(0, 44, ROOM_W, 3, '#6f5444');
+      R(0, 44, ROOM_W, 1, '#8a6b57');
+      R(0, 47, ROOM_W, 1, '#4f3a2f');
+
+      // Floor: two staggered planks per tile.
+      const tones = ['#cfa274', '#c99c6d', '#c4966a', '#d2a77a'];
+      for (let ty = WALL_ROWS; ty < ROWS; ty++) {
+        for (let tx = 0; tx < COLS; tx++) {
+          const px = tx * T;
+          const py = ty * T;
+          for (let half = 0; half < 2; half++) {
+            const y = py + half * 8;
+            const seam = half ? 8 : 0;
+            const toneL = tones[Math.floor(rnd(tx * 7 + ty * 31 + half * 3) * tones.length)];
+            const toneR = tones[Math.floor(rnd(tx * 7 + ty * 31 + half * 3 + 1) * tones.length)];
+            if (seam) {
+              R(px, y, seam, 8, toneL);
+              R(px + seam, y, T - seam, 8, toneR);
+            } else {
+              R(px, y, T, 8, toneL);
+            }
+            R(px, y, T, 1, 'rgba(255, 236, 200, 0.35)');
+            R(px, y + 7, T, 1, '#a97d52');
+            R(px + seam, y, 1, 7, '#b0845a');
+            const gx = px + 2 + Math.floor(rnd(tx * 13 + ty * 5 + half) * 11);
+            R(gx, y + 3 + Math.floor(rnd(tx * 3 + ty * 17 + half) * 3), 3, 1, 'rgba(120, 80, 45, 0.18)');
+          }
+        }
+      }
+      R(0, WALL_ROWS * T, ROOM_W, 3, 'rgba(70, 40, 30, 0.2)');
+      R(0, WALL_ROWS * T + 3, ROOM_W, 1, 'rgba(70, 40, 30, 0.08)');
+
+      // Rug under the cooler, laid on the grid.
+      const rx = RUG.x * T;
+      const ry = RUG.y * T;
+      const rw = RUG.w * T;
+      const rh = RUG.h * T;
+      R(rx + 2, ry + 3, rw, rh, 'rgba(70, 40, 30, 0.18)');
+      box(rx + 1, ry + 1, rw - 2, rh - 2, '#e2a86e');
+      R(rx + 3, ry + 3, rw - 6, rh - 6, '#c8664e');
+      R(rx + 5, ry + 5, rw - 10, rh - 10, '#e7b97f');
+      R(rx + 6, ry + 6, rw - 12, rh - 12, '#c8664e');
+      R(rx + 6, ry + 6, rw - 12, 1, '#d77a60');
+      for (let tx = 0; tx < RUG.w; tx++) {
+        for (let ty = 0; ty < RUG.h; ty++) {
+          const cx = rx + tx * T + 8;
+          const cy = ry + ty * T + 8;
+          if (tx === 0 || ty === 0 || tx === RUG.w - 1 || ty === RUG.h - 1) continue;
+          P(cx, cy - 2, '#f3cf98');
+          R(cx - 1, cy - 1, 3, 1, '#f3cf98');
+          R(cx - 2, cy, 5, 1, '#f3cf98');
+          R(cx - 1, cy + 1, 3, 1, '#f3cf98');
+          P(cx, cy + 2, '#f3cf98');
+          P(cx, cy, '#b85a46');
+        }
+      }
+      for (let i = 0; i < RUG.w * 2; i++) {
+        const cx = rx + i * 8 + 4;
+        R(cx - 1, ry + 9, 2, 2, '#f3cf98');
+        R(cx - 1, ry + rh - 11, 2, 2, '#f3cf98');
+      }
+      for (let y = ry + 4; y < ry + rh - 4; y += 3) {
+        R(rx - 2, y, 2, 1, '#efd6a8');
+        R(rx + rw, y, 2, 1, '#efd6a8');
+      }
 
       // Light switch and plug socket
-      box(118, 18, 3, 4, '#f7f3ea');
-      P(119, 19, '#c9c4b8');
-      box(250, 36, 4, 3, '#f7f3ea');
-      P(251, 37, OUT);
-      P(252, 37, OUT);
-
-      // Floorboards
-      const tones = ['#c99c6d', '#c3956a', '#cda274'];
-      for (let row = 0, y = FLOOR_TOP; y < FLOOR_BOTTOM; row++, y += 8) {
-        const h = Math.min(8, FLOOR_BOTTOM - y);
-        let px = -((row * 13) % 32);
-        let k = 0;
-        while (px < ROOM_W) {
-          R(px, y, 32, h, tones[Math.floor(rnd(row * 31 + k) * 3)]);
-          R(px, y, 1, h, '#b0845a');
-          px += 32;
-          k++;
-        }
-        R(0, y + h - 1, ROOM_W, 1, '#b48759');
-        for (let i = 0; i < 12; i++) {
-          const gx = Math.floor(rnd(row * 97 + i) * ROOM_W);
-          R(gx, y + 2 + Math.floor(rnd(row * 53 + i) * 4), 3, 1, 'rgba(120, 80, 45, 0.16)');
-        }
-      }
-      R(0, FLOOR_TOP, ROOM_W, 2, 'rgba(70, 40, 30, 0.18)');
-
-      // Rug under the cooler
-      ellipse(160, 120, 53, 25, OUT);
-      ellipse(160, 120, 52, 24, '#e2a86e');
-      ellipse(160, 120, 48, 21, '#c8664e');
-      ellipse(160, 120, 41, 17, '#e7b97f');
-      ellipse(160, 120, 39, 16, '#c8664e');
-      ellipse(160, 120, 24, 9, '#b85a46');
-      for (let i = 0; i < 16; i++) {
-        const a = (i / 16) * Math.PI * 2;
-        const dx = Math.round(160 + Math.cos(a) * 44.5);
-        const dy = Math.round(120 + Math.sin(a) * 18.5);
-        P(dx, dy - 1, '#f3cf98');
-        R(dx - 1, dy, 3, 1, '#f3cf98');
-        P(dx, dy + 1, '#f3cf98');
-      }
-      for (let y = -6; y <= 6; y += 2) {
-        R(105, 120 + y, 2, 1, '#efd6a8');
-        R(213, 120 + y, 2, 1, '#efd6a8');
-      }
+      box(117, 17, 3, 4, '#f7f3ea');
+      P(118, 18, '#c9c4b8');
+      box(262, 36, 4, 3, '#f7f3ea');
+      P(263, 37, OUT);
+      P(264, 37, OUT);
 
       // Whiteboard
-      box(124, 6, 72, 26, '#c9ccd8');
-      R(126, 8, 68, 22, '#fbfbf6');
-      pixText('Q3 ROADMAP', 128, 10, '#d5534a');
-      pixText('1 AI', 128, 17, '#3d6fb6');
-      pixText('2 MORE AI', 148, 17, '#3d6fb6');
-      pixText('3 ???', 128, 24, '#3d6fb6');
-      pixText('USERS', 152, 24, '#a9a9b3');
-      R(151, 26, 21, 1, '#d5534a');
-      // sad face
-      P(177, 24, '#3d6fb6');
-      P(180, 24, '#3d6fb6');
-      R(177, 27, 4, 1, '#3d6fb6');
-      P(176, 28, '#3d6fb6');
-      P(181, 28, '#3d6fb6');
-      // doodled chart
-      R(176, 10, 1, 6, '#4f9a63');
-      R(176, 15, 14, 1, '#4f9a63');
-      R(178, 13, 2, 2, '#4f9a63');
-      R(181, 11, 2, 4, '#4f9a63');
-      R(184, 12, 2, 3, '#4f9a63');
-      R(187, 9, 2, 6, '#4f9a63');
-      // marker tray
-      R(126, 32, 68, 2, '#9aa0b0');
-      R(140, 31, 5, 1, '#d5534a');
-      R(147, 31, 5, 1, '#3d6fb6');
-      R(154, 31, 5, 1, '#4f9a63');
+      shifted(8, 0, () => {
+        R(126, 34, 70, 2, 'rgba(58, 34, 32, 0.18)');
+        box(124, 6, 72, 26, '#c9ccd8');
+        R(126, 8, 68, 22, '#fbfbf6');
+        R(126, 8, 68, 1, '#ffffff');
+        pixText('Q3 ROADMAP', 128, 10, '#d5534a');
+        pixText('1 AI', 128, 17, '#3d6fb6');
+        pixText('2 MORE AI', 148, 17, '#3d6fb6');
+        pixText('3 ???', 128, 24, '#3d6fb6');
+        pixText('USERS', 152, 24, '#a9a9b3');
+        R(151, 26, 21, 1, '#d5534a');
+        P(177, 24, '#3d6fb6');
+        P(180, 24, '#3d6fb6');
+        R(177, 27, 4, 1, '#3d6fb6');
+        P(176, 28, '#3d6fb6');
+        P(181, 28, '#3d6fb6');
+        R(176, 10, 1, 6, '#4f9a63');
+        R(176, 15, 14, 1, '#4f9a63');
+        R(178, 13, 2, 2, '#4f9a63');
+        R(181, 11, 2, 4, '#4f9a63');
+        R(184, 12, 2, 3, '#4f9a63');
+        R(187, 9, 2, 6, '#4f9a63');
+        R(126, 32, 68, 2, '#9aa0b0');
+        R(140, 31, 5, 1, '#d5534a');
+        R(147, 31, 5, 1, '#3d6fb6');
+        R(154, 31, 5, 1, '#4f9a63');
+      });
 
       // Poster
-      box(204, 8, 18, 22, '#5f9aa0');
-      P(212, 10, '#f6d36b');
-      R(211, 11, 3, 1, '#f6d36b');
-      P(212, 12, '#f6d36b');
-      pixText('TEAM', 205, 16, '#fdf8ee');
-      pixText('WORK', 205, 23, '#fdf8ee');
-      R(207, 22, 10, 1, 'rgba(0, 0, 0, 0.18)');
-      R(206, 14, 10, 8, '#ffe27a');
-      pixText('AI', 208, 15, OUT);
+      shifted(23, 0, () => {
+        R(204, 31, 18, 1, 'rgba(58, 34, 32, 0.18)');
+        box(204, 8, 18, 22, '#5f9aa0');
+        P(212, 10, '#f6d36b');
+        R(211, 11, 3, 1, '#f6d36b');
+        P(212, 12, '#f6d36b');
+        pixText('TEAM', 205, 16, '#fdf8ee');
+        pixText('WORK', 205, 23, '#fdf8ee');
+        R(207, 22, 10, 1, 'rgba(0, 0, 0, 0.18)');
+        R(206, 14, 10, 8, '#ffe27a');
+        pixText('AI', 208, 15, OUT);
+      });
 
       // Employee of the month
-      box(230, 9, 14, 17, '#d9a441');
-      R(231, 10, 12, 15, '#efe7d6');
-      box(233, 12, 8, 6, '#ece8f6');
-      R(234, 13, 6, 4, '#2d2b4f');
-      P(235, 14, '#7ef0dc');
-      P(238, 14, '#7ef0dc');
-      R(236, 16, 2, 1, '#7ef0dc');
-      R(233, 20, 8, 3, '#d9a441');
-      R(234, 21, 6, 1, '#b8862f');
+      shifted(11, 0, () => {
+        box(230, 9, 14, 17, '#d9a441');
+        R(231, 10, 12, 15, '#efe7d6');
+        box(233, 12, 8, 6, '#ece8f6');
+        R(234, 13, 6, 4, '#2d2b4f');
+        P(235, 14, '#7ef0dc');
+        P(238, 14, '#7ef0dc');
+        R(236, 16, 2, 1, '#7ef0dc');
+        R(233, 20, 8, 3, '#d9a441');
+        R(234, 21, 6, 1, '#b8862f');
+      });
 
       // Room edges
-      R(0, 0, 4, ROOM_H, '#3d3240');
-      R(ROOM_W - 4, 0, 4, ROOM_H, '#3d3240');
-      R(0, FLOOR_BOTTOM, ROOM_W, ROOM_H - FLOOR_BOTTOM, '#3d3240');
-      R(4, FLOOR_TOP, 1, FLOOR_BOTTOM - FLOOR_TOP, 'rgba(0, 0, 0, 0.12)');
-      R(ROOM_W - 5, FLOOR_TOP, 1, FLOOR_BOTTOM - FLOOR_TOP, 'rgba(0, 0, 0, 0.12)');
-      R(4, FLOOR_BOTTOM - 1, ROOM_W - 8, 1, 'rgba(0, 0, 0, 0.15)');
+      R(0, WALL_ROWS * T, 2, ROOM_H, '#3d3240');
+      R(ROOM_W - 2, WALL_ROWS * T, 2, ROOM_H, '#3d3240');
+      R(2, WALL_ROWS * T, 1, ROOM_H, 'rgba(0, 0, 0, 0.12)');
+      R(ROOM_W - 3, WALL_ROWS * T, 1, ROOM_H, 'rgba(0, 0, 0, 0.12)');
     });
     return c;
   })();
@@ -575,8 +697,8 @@
   }
 
   function drawClock() {
-    const cx = 88;
-    const cy = 9;
+    const cx = 72;
+    const cy = 13;
     ellipse(cx, cy, 6, 6, OUT);
     ellipse(cx, cy, 5, 5, '#fdf8ee');
     P(cx, cy - 4, '#a9a5b8');
@@ -592,30 +714,6 @@
     hand((hr / 12) * Math.PI * 2, 2, OUT);
     hand((m / 60) * Math.PI * 2, 4, '#5a4d5e');
     P(cx, cy, '#d5534a');
-  }
-
-  function drawSunbeams(t) {
-    for (const [x0, x1] of [[16, 64], [256, 304]]) {
-      for (let y = 30; y < 150; y++) {
-        const a = 0.11 * (1 - (y - 30) / 130);
-        const off = Math.round(((y - 30) * 62) / 120);
-        const left = x0 + off;
-        const right = Math.min(x1 + off, ROOM_W - 4);
-        if (right <= left) continue;
-        ctx.fillStyle = `rgba(255, 236, 186, ${a.toFixed(3)})`;
-        ctx.fillRect(left, y, right - left, 1);
-      }
-    }
-    for (let i = 0; i < 20; i++) {
-      const x0 = i % 2 ? 256 : 16;
-      const u = (rnd(i) + t * 0.018 * (0.5 + rnd(i + 9))) % 1;
-      const y = 34 + u * 104;
-      const x = x0 + rnd(i + 3) * 46 + ((y - 30) * 62) / 120 + Math.sin(t * 0.7 + i) * 2;
-      if (x > ROOM_W - 5) continue;
-      const a = 0.3 + 0.3 * Math.sin(t * 2 + i * 1.7);
-      ctx.fillStyle = `rgba(255, 248, 220, ${a.toFixed(2)})`;
-      ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
-    }
   }
 
   function steam(x, y, t, n = 3, rise = 7) {
@@ -650,7 +748,7 @@
   }
 
   function deskBase(x, y) {
-    ellipse(x + 22, y + 24, 24, 3, SHADOW);
+    R(x + 1, y + 24, 44, 2, SHADOW);
     R(x + 1, y + 18, 3, 6, '#5e3b25');
     R(x + 40, y + 18, 3, 6, '#5e3b25');
     box(x, y, 44, 19, '#b9834f');
@@ -662,8 +760,8 @@
   }
 
   function drawEngineerDesk(t) {
-    const x = 8;
-    const y = 60;
+    const x = 18;
+    const y = 70;
     deskBase(x, y);
     monitor(x + 3, y - 9, 17, 12, (sx, sy, sw, sh) => codeScreen(sx, sy, sw, sh, t, 1));
     monitor(x + 22, y - 9, 17, 12, (sx, sy, sw, sh) => codeScreen(sx, sy, sw, sh, t, 2));
@@ -672,7 +770,6 @@
     box(x + 33, y + 8, 2, 3, '#d8d5e0');
     box(x + 40, y + 3, 3, 5, '#7bc96f');
     R(x + 40, y + 3, 3, 1, '#c8d0d8');
-    // rubber duck
     R(x + 2, y + 7, 5, 3, '#f6d04d');
     R(x + 4, y + 5, 3, 3, '#f6d04d');
     P(x + 7, y + 6, '#ef8a3a');
@@ -680,8 +777,8 @@
   }
 
   function drawDesignerDesk(t) {
-    const x = 8;
-    const y = 118;
+    const x = 18;
+    const y = 134;
     deskBase(x, y);
     monitor(x + 7, y - 11, 28, 14, (sx, sy, sw, sh) => {
       R(sx, sy, sw, sh, '#ebe7f1');
@@ -714,8 +811,8 @@
   }
 
   function drawPmDesk(t) {
-    const x = 268;
-    const y = 60;
+    const x = 274;
+    const y = 70;
     deskBase(x, y);
     box(x + 12, y - 6, 20, 11, '#9aa3b5');
     R(x + 13, y - 5, 18, 9, '#f4f2f8');
@@ -753,9 +850,9 @@
 
   const counterState = { brew: 0 };
   function drawCounter(t) {
-    const x = 268;
-    const y = 118;
-    ellipse(x + 22, y + 25, 24, 3, SHADOW);
+    const x = 274;
+    const y = 134;
+    R(x + 1, y + 24, 44, 2, SHADOW);
     box(x, y + 12, 44, 12, '#7f9db5');
     R(x + 14, y + 13, 1, 11, '#6a879e');
     R(x + 29, y + 13, 1, 11, '#6a879e');
@@ -765,7 +862,6 @@
     box(x, y, 44, 12, '#e8e3d8');
     R(x, y, 44, 1, '#f7f3ea');
     R(x, y + 11, 44, 1, '#cfc8b8');
-    // coffee machine
     box(x + 4, y - 10, 12, 16, '#3a3640');
     R(x + 5, y - 9, 10, 3, '#4a4552');
     P(x + 13, y - 8, counterState.brew > 0 || Math.floor(t) % 3 ? '#e0584a' : '#7a3a35');
@@ -784,10 +880,11 @@
     R(x + 38, y + 5, 2, 2, '#e8c547');
   }
 
+  const COOLER_TILE = [10, 6];
   const cooler = { bubbles: [], next: 3 };
   function drawCooler() {
-    const cx = 160;
-    const b = 112;
+    const cx = COOLER_TILE[0] * T + 8;
+    const b = COOLER_TILE[1] * T + 14;
     ellipse(cx, b, 9, 3, SHADOW);
     box(cx - 7, b - 18, 14, 18, '#ebe8f1');
     R(cx + 3, b - 18, 4, 18, '#d3cfdf');
@@ -810,8 +907,8 @@
   }
 
   function drawBookshelf() {
-    const x = 74;
-    const y = 16;
+    const x = 82;
+    const y = 24;
     const w = 28;
     const h = 38;
     R(x + 1, y + h, w, 2, SHADOW);
@@ -880,14 +977,16 @@
 
   function drawSofa() {
     const x = 130;
-    const y = 158;
-    const w = 60;
-    ellipse(160, 181, 32, 3, SHADOW);
+    const y = 170;
+    const w = 76;
+    const cx = x + w / 2;
+    ellipse(cx, y + 21, w / 2 + 2, 2, SHADOW);
     box(x + 4, y, w - 8, 8, '#8fb0cf');
-    R(x + 21, y, 1, 8, '#7798ba');
-    R(x + 38, y, 1, 8, '#7798ba');
+    for (let i = 1; i < 4; i++) R(x + 4 + Math.round(((w - 8) * i) / 4), y, 1, 8, '#7798ba');
     box(x + 9, y - 3, 8, 6, '#f2c46d');
     R(x + 10, y - 2, 6, 1, '#f7d891');
+    box(x + w - 18, y - 3, 8, 6, '#e07a5f');
+    R(x + w - 17, y - 2, 6, 1, '#ec9a83');
     box(x, y - 2, 6, 21, '#6d8fb5');
     box(x + w - 6, y - 2, 6, 21, '#6d8fb5');
     R(x, y - 2, 6, 1, '#8fb0cf');
@@ -895,75 +994,82 @@
     box(x + 6, y + 7, w - 12, 12, '#5f80a8');
     R(x + 6, y + 7, w - 12, 2, '#7a9cc2');
     for (let i = x + 12; i < x + w - 8; i += 9) P(i, y + 13, '#4f6f96');
-    R(x + 2, y + 19, 2, 2, '#4a3528');
-    R(x + w - 4, y + 19, 2, 2, '#4a3528');
   }
 
   function drawPrinter(t) {
-    ellipse(89, 180, 13, 2, SHADOW);
-    box(78, 168, 22, 12, '#8a5a38');
-    R(89, 169, 1, 10, '#734a2c');
-    P(87, 174, '#e3c08f');
-    P(91, 174, '#e3c08f');
-    box(80, 160, 18, 8, '#e1dee8');
-    R(80, 160, 18, 2, '#f2f0f5');
-    R(82, 163, 14, 1, '#4a4552');
-    R(84, 157, 10, 3, '#fdfdf8');
-    P(96, 165, Math.floor(t * 1.5) % 2 ? '#f0a040' : '#8a6a3a');
+    shifted(7, 10, () => {
+      ellipse(89, 180, 13, 2, SHADOW);
+      box(78, 168, 22, 12, '#8a5a38');
+      R(89, 169, 1, 10, '#734a2c');
+      P(87, 174, '#e3c08f');
+      P(91, 174, '#e3c08f');
+      box(80, 160, 18, 8, '#e1dee8');
+      R(80, 160, 18, 2, '#f2f0f5');
+      R(82, 163, 14, 1, '#4a4552');
+      R(84, 157, 10, 3, '#fdfdf8');
+      P(96, 165, Math.floor(t * 1.5) % 2 ? '#f0a040' : '#8a6a3a');
+    });
   }
 
-  // Draw order is by "y" (the bottom edge of each thing), so characters can walk behind furniture.
+  // Draw order is by the bottom edge of each thing, so people can stand behind furniture.
   const decor = [
-    { y: 54, draw: drawBookshelf },
-    { y: 56, draw: (t) => drawFern(113, 56, t) },
-    { y: 84, draw: drawEngineerDesk },
-    { y: 99, draw: () => drawChair(30, 87) },
-    { y: 142, draw: drawDesignerDesk },
-    { y: 157, draw: () => drawChair(30, 145) },
-    { y: 84, draw: drawPmDesk },
-    { y: 99, draw: () => drawChair(290, 87) },
-    { y: 142, draw: drawCounter },
+    { y: 64, draw: drawBookshelf },
+    { y: 64, draw: (t) => drawFern(120, 62, t) },
+    { y: 96, draw: drawEngineerDesk },
+    { y: 112, draw: () => drawChair(40, 98) },
+    { y: 160, draw: drawDesignerDesk },
+    { y: 176, draw: () => drawChair(40, 162) },
+    { y: 96, draw: drawPmDesk },
+    { y: 112, draw: () => drawChair(296, 98) },
+    { y: 160, draw: drawCounter },
     { y: 112, draw: drawCooler },
-    { y: 180, draw: drawSofa },
-    { y: 180, draw: drawPrinter },
-    { y: 182, draw: () => drawBush(15, 182) },
-    { y: 182, draw: () => drawBush(305, 182) },
+    { y: 192, draw: drawSofa },
+    { y: 192, draw: drawPrinter },
+    { y: 192, draw: () => drawBush(9, 190) },
+    { y: 192, draw: () => drawBush(ROOM_W - 9, 190) },
   ];
 
-  const solids = [
-    [74, 46, 28, 10],
-    [107, 48, 12, 9],
-    [8, 58, 44, 26],
-    [24, 93, 12, 6],
-    [8, 116, 44, 26],
-    [24, 151, 12, 6],
-    [268, 58, 44, 26],
-    [284, 93, 12, 6],
-    [268, 112, 44, 30],
-    [152, 105, 16, 9],
-    [130, 160, 60, 21],
-    [77, 166, 24, 15],
-    [8, 173, 14, 10],
-    [298, 173, 14, 10],
+  // [col, row, width, height] in tiles.
+  const SOLIDS = [
+    [5, 3, 2, 1],
+    [7, 3, 1, 1],
+    [1, 4, 3, 2],
+    [2, 6, 1, 1],
+    [1, 8, 3, 2],
+    [2, 10, 1, 1],
+    [17, 4, 3, 2],
+    [18, 6, 1, 1],
+    [17, 8, 3, 2],
+    [COOLER_TILE[0], COOLER_TILE[1], 1, 1],
+    [8, 11, 5, 1],
+    [5, 11, 2, 1],
+    [0, 11, 1, 1],
+    [20, 11, 1, 1],
   ];
+  const solid = new Uint8Array(COLS * ROWS);
+  for (let ty = 0; ty < WALL_ROWS; ty++) for (let tx = 0; tx < COLS; tx++) solid[ty * COLS + tx] = 1;
+  for (const [sx, sy, sw, sh] of SOLIDS) {
+    for (let ty = sy; ty < sy + sh; ty++) for (let tx = sx; tx < sx + sw; tx++) solid[ty * COLS + tx] = 1;
+  }
 
+  // Things you can face and press A on. Tiles are [col, row, width, height].
   const props = [
-    { id: 'whiteboard', label: 'Read the whiteboard', zone: [124, 36, 72, 16], mark: [160, 5] },
-    { id: 'poster', label: 'Look at the poster', zone: [200, 36, 26, 16], mark: [213, 7] },
-    { id: 'employee', label: 'Look at the photo', zone: [226, 36, 24, 16], mark: [237, 8] },
-    { id: 'window', label: 'Look outside', zone: [14, 36, 52, 18], mark: [40, 4] },
-    { id: 'window', label: 'Look outside', zone: [254, 36, 52, 18], mark: [280, 4] },
-    { id: 'bookshelf', label: 'Browse the bookshelf', zone: [70, 36, 34, 24], mark: [96, 15] },
-    { id: 'kevin', label: 'Say hi to Kevin', zone: [102, 40, 22, 22], mark: [113, 34] },
-    { id: 'engineerDesk', label: "Look at the Engineer's desk", own: 'Check your screens', zone: [4, 54, 54, 36], mark: [30, 50] },
-    { id: 'designerDesk', label: "Look at the Designer's desk", own: 'Check your artboards', zone: [4, 112, 54, 36], mark: [30, 106] },
-    { id: 'pmDesk', label: "Look at the PM's desk", own: 'Check your tabs', zone: [262, 54, 54, 36], mark: [290, 53] },
-    { id: 'coffee', label: 'Make a coffee', zone: [262, 108, 54, 40], mark: [278, 106], sfx: 'brew' },
-    { id: 'cooler', label: 'Use the water cooler', zone: [140, 94, 40, 28], mark: [160, 78], sfx: 'gurgle' },
-    { id: 'sofa', label: 'Look at the couch', zone: [126, 154, 68, 32], mark: [160, 153] },
-    { id: 'printer', label: 'Check the printer', zone: [72, 158, 34, 28], mark: [89, 155] },
-    { id: 'plant', label: 'Look at the plant', zone: [4, 164, 24, 22], mark: [15, 159] },
-    { id: 'plant', label: 'Look at the plant', zone: [294, 164, 24, 22], mark: [305, 159] },
+    { id: 'whiteboard', label: 'Read the whiteboard', tiles: [8, 2, 5, 1], mark: [168, 4] },
+    { id: 'poster', label: 'Look at the poster', tiles: [14, 2, 1, 1], mark: [236, 6] },
+    { id: 'employee', label: 'Look at the photo', tiles: [15, 2, 1, 1], mark: [248, 7] },
+    { id: 'window', label: 'Look outside', tiles: [1, 2, 3, 1], mark: [40, 4] },
+    { id: 'window', label: 'Look outside', tiles: [17, 2, 3, 1], mark: [296, 4] },
+    { id: 'bookshelf', label: 'Browse the bookshelf', tiles: [5, 2, 2, 2], mark: [96, 14] },
+    { id: 'kevin', label: 'Say hi to Kevin', tiles: [7, 3, 1, 1], mark: [120, 38] },
+    { id: 'engineerDesk', label: "Look at the Engineer's desk", own: 'Check your screens', tiles: [1, 4, 3, 3], mark: [40, 58] },
+    { id: 'designerDesk', label: "Look at the Designer's desk", own: 'Check your artboards', tiles: [1, 8, 3, 3], mark: [40, 120] },
+    { id: 'pmDesk', label: "Look at the PM's desk", own: 'Check your tabs', tiles: [17, 4, 3, 3], mark: [296, 62] },
+    { id: 'coffee', label: 'Make a coffee', tiles: [17, 8, 3, 2], mark: [284, 122], sfx: 'brew' },
+    { id: 'cooler', label: 'Use the water cooler', tiles: [COOLER_TILE[0], COOLER_TILE[1], 1, 1], mark: [168, 76], sfx: 'gurgle' },
+    { id: 'sofa', label: 'Look at the couch', tiles: [8, 11, 5, 1], mark: [168, 165] },
+    { id: 'printer', label: 'Check the printer', tiles: [5, 11, 2, 1], mark: [96, 165] },
+    { id: 'plant', label: 'Look at the plant', tiles: [0, 11, 1, 1], mark: [9, 167] },
+    { id: 'plant', label: 'Look at the plant', tiles: [20, 11, 1, 1], mark: [ROOM_W - 9, 167] },
   ];
   const ownDesk = { engineerDesk: 'engineer', designerDesk: 'designer', pmDesk: 'pm' };
 
@@ -971,23 +1077,43 @@
   // People
   // ---------------------------------------------------------------------------
 
-  const makePerson = (id, x, y, dir) => ({
-    id, x, y, dir, moving: false, animT: 0, blink: 1 + Math.random() * 3, lookT: 1 + Math.random() * 3,
+  const makePerson = (id, tx, ty, dir) => ({
+    id, tx, ty, px: tx * T, py: ty * T, dir,
+    moving: false, to: null, t: 0, parity: 0, frame: 0, turnT: 0, bumpT: 0,
+    blink: 1 + Math.random() * 3, lookT: 1 + Math.random() * 3,
   });
   const people = {
-    designer: makePerson('designer', 134, 118, 'right'),
-    engineer: makePerson('engineer', 186, 118, 'left'),
-    pm: makePerson('pm', 160, 142, 'up'),
+    designer: makePerson('designer', 8, 7, 'right'),
+    engineer: makePerson('engineer', 12, 7, 'left'),
+    pm: makePerson('pm', 10, 8, 'up'),
   };
-  const ai = { x: 206, y: 94, t: 0, blink: 2 };
+  const ai = {
+    tx: 14, ty: 5, px: 14 * T, py: 5 * T, moving: false, to: null, from: null, t: 0, wanderT: 4, blink: 2, bobT: 0,
+  };
+  const AI_AREA = { x0: 13, y0: 4, x1: 15, y1: 6 };
 
   const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-  const frameOf = (p) => (p.moving ? [1, 0, 2, 0][Math.floor(p.animT / 0.13) % 4] : 0);
-  const aiBob = () => Math.round(Math.sin(time * 2.6) * 1.5);
+  const aiBob = () => Math.round(Math.sin(ai.bobT * 2.6) * 1.5);
+
+  function occupant(tx, ty, self) {
+    for (const id of IDS) {
+      const p = people[id];
+      if (p === self) continue;
+      if ((p.tx === tx && p.ty === ty) || (p.moving && p.to[0] === tx && p.to[1] === ty)) return p;
+    }
+    if (ai !== self && ((ai.tx === tx && ai.ty === ty) || (ai.moving && ai.to[0] === tx && ai.to[1] === ty))) return ai;
+    return null;
+  }
+
+  function blockedTile(tx, ty, self) {
+    if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return true;
+    if (solid[ty * COLS + tx]) return true;
+    return !!occupant(tx, ty, self);
+  }
 
   function faceToward(p, x, y) {
-    const dx = x - p.x;
-    const dy = y - p.y;
+    const dx = x - p.px;
+    const dy = y - p.py;
     if (Math.abs(dx) > Math.abs(dy)) p.dir = dx > 0 ? 'right' : 'left';
     else p.dir = dy > 0 ? 'down' : 'up';
   }
@@ -995,33 +1121,36 @@
   const RING = { designer: '#f08a6e', engineer: '#7fc79a', pm: '#8ea3e8' };
 
   function drawPerson(p) {
-    const x = Math.round(p.x);
-    const y = Math.round(p.y);
+    const x = Math.round(p.px);
+    const y = Math.round(p.py);
+    const fx = x + 8;
+    const fy = y + 14;
     if (p.id === playerId && state !== 'title') {
-      ellipse(x, y, 7, 3, RING[p.id]);
-      ellipse(x, y, 6, 2, 'rgba(255, 255, 255, 0.35)');
+      ellipse(fx, fy, 7, 3, RING[p.id]);
+      ellipse(fx, fy, 6, 2, 'rgba(255, 255, 255, 0.35)');
     }
-    ellipse(x, y, 5, 2, SHADOW);
+    ellipse(fx, fy, 5, 2, SHADOW);
     const view = p.dir === 'up' ? 'up' : p.dir === 'down' ? 'down' : 'side';
     const blink = p.blink < 0 && view !== 'up';
-    const spr = sprites[p.id][blink ? view + 'Blink' : view][frameOf(p)];
+    const spr = sprites[p.id][blink ? view + 'Blink' : view][p.frame];
+    const bounce = p.frame !== 0 ? -1 : 0;
+    const top = y + 16 - spr.height + bounce;
     if (p.dir === 'left') {
       ctx.save();
-      ctx.translate(x + 7, 0);
+      ctx.translate(x + 16, 0);
       ctx.scale(-1, 1);
-      ctx.drawImage(spr, 0, y - 19);
+      ctx.drawImage(spr, 0, top);
       ctx.restore();
     } else {
-      ctx.drawImage(spr, x - 7, y - 19);
+      ctx.drawImage(spr, x, top);
     }
   }
 
   function drawAI() {
-    const x = Math.round(ai.x);
-    const y = Math.round(ai.y);
+    const x = Math.round(ai.px) + 8;
+    const y = Math.round(ai.py) + 14;
     const bob = aiBob();
     ellipse(x, y, 4 - (bob > 0 ? 1 : 0), 1, 'rgba(58, 34, 32, 0.16)');
-    ctx.fillStyle = 'rgba(126, 240, 220, 0.12)';
     ellipse(x, y - 21 + bob, 10, 9, 'rgba(126, 240, 220, 0.12)');
     ctx.drawImage(ai.blink < 0 ? aiBlink : aiSprite, x - 7, y - 27 + bob);
     const tw = (time * 1.3) % 3;
@@ -1071,8 +1200,8 @@
   }
 
   function drawSweat(x, y, t) {
-    const dx = x + 6;
-    const dy = y + 4 + Math.floor((t * 5) % 3);
+    const dx = x + 7;
+    const dy = y + 5 + Math.floor((t * 5) % 3);
     R(dx - 1, dy - 1, 3, 1, OUT);
     R(dx - 2, dy, 5, 3, OUT);
     R(dx - 1, dy + 3, 3, 1, OUT);
@@ -1093,9 +1222,9 @@
   }
 
   function headPos(id) {
-    if (id === 'ai') return [Math.round(ai.x), Math.round(ai.y) - 28 + aiBob()];
+    if (id === 'ai') return [Math.round(ai.px) + 8, Math.round(ai.py) + 14 - 28 + aiBob()];
     const p = people[id];
-    return [Math.round(p.x), Math.round(p.y) - 21];
+    return [Math.round(p.px) + 8, Math.round(p.py) - 7];
   }
 
   const particles = [];
@@ -1137,11 +1266,7 @@
     },
     set(on) {
       this.on = on;
-      try {
-        localStorage.setItem('watercooler:sound', on ? 'on' : 'off');
-      } catch (e) {
-        /* storage unavailable */
-      }
+      store('watercooler:sound', on ? 'on' : 'off');
       if (on) this.ensure();
     },
     tone(freq, dur, { type = 'square', vol = 0.05, to = null, at = 0 } = {}) {
@@ -1189,8 +1314,12 @@
       if (!f) return;
       this.tone(f * (0.94 + Math.random() * 0.12), 0.05, { type: id === 'ai' ? 'triangle' : 'square', vol: id === 'ai' ? 0.06 : 0.025 });
     },
-    step() {
-      this.noise(0.04, { vol: 0.05, freq: 650 });
+    bump() {
+      this.tone(120, 0.08, { type: 'square', vol: 0.05, to: 70 });
+      this.noise(0.05, { vol: 0.04, freq: 400 });
+    },
+    cursor() {
+      this.tone(1320, 0.035, { type: 'square', vol: 0.025 });
     },
     open() {
       this.tone(660, 0.07, { type: 'triangle', vol: 0.06 });
@@ -1217,6 +1346,21 @@
     },
   };
 
+  function store(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      /* storage unavailable */
+    }
+  }
+  function recall(key, fallback) {
+    try {
+      return localStorage.getItem(key) || fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Game state
   // ---------------------------------------------------------------------------
@@ -1231,58 +1375,132 @@
   const talkCount = {};
   const propCount = {};
   const lastIdle = {};
-  const keys = { up: false, down: false, left: false, right: false };
-  const touchDir = { x: 0, y: 0 };
+  // Most recently pressed direction wins, like a real D-pad.
+  const dirStack = [];
+  let touchDir = null;
   let touchUI = window.matchMedia('(pointer: coarse)').matches;
 
   const player = () => people[playerId];
+  const heldDir = () => (dirStack.length ? dirStack[dirStack.length - 1] : touchDir);
 
-  function blocked(x, y, self) {
-    if (x < 10 || x > ROOM_W - 10 || y < 52 || y > FLOOR_BOTTOM - 3) return true;
-    const fx = x - 4;
-    const fy = y - 3;
-    for (const r of solids) {
-      if (fx < r[0] + r[2] && fx + 8 > r[0] && fy < r[1] + r[3] && fy + 3 > r[1]) return true;
+  function tryStep(p) {
+    const [dx, dy] = DIRV[p.dir];
+    const nx = p.tx + dx;
+    const ny = p.ty + dy;
+    if (blockedTile(nx, ny, p)) return false;
+    p.moving = true;
+    p.to = [nx, ny];
+    p.t = 0;
+    p.parity ^= 1;
+    p.bumpT = 0;
+    return true;
+  }
+
+  function placeStep(p) {
+    const k = Math.floor(p.t * T);
+    p.px = p.tx * T + (p.to[0] - p.tx) * k;
+    p.py = p.ty * T + (p.to[1] - p.ty) * k;
+    const beat = Math.floor(p.t * 4);
+    p.frame = beat === 0 ? (p.parity ? 1 : 2) : beat === 2 ? (p.parity ? 2 : 1) : 0;
+  }
+
+  function arrive(p) {
+    p.tx = p.to[0];
+    p.ty = p.to[1];
+    p.px = p.tx * T;
+    p.py = p.ty * T;
+    p.moving = false;
+    p.to = null;
+    p.t = 0;
+  }
+
+  function updateWalker(p, want, dt) {
+    if (p.moving) {
+      p.t += dt / STEP_TIME;
+      if (p.t < 1) return placeStep(p);
+      const over = p.t - 1;
+      arrive(p);
+      // Keep walking without a pause if the direction is still held.
+      if (want) {
+        p.dir = want;
+        if (tryStep(p)) {
+          p.t = over;
+          return placeStep(p);
+        }
+      }
+      p.frame = 0;
+      return;
     }
-    for (const id of IDS) {
-      const o = people[id];
-      if (o === self) continue;
-      if (Math.abs(o.x - x) < 9 && Math.abs(o.y - y) < 5) return true;
+    if (!want) {
+      p.turnT = 0;
+      p.bumpT = 0;
+      p.frame = 0;
+      return;
     }
-    return false;
+    // A quick tap turns on the spot; holding walks.
+    if (want !== p.dir) {
+      p.dir = want;
+      p.turnT = TURN_DELAY;
+      p.frame = 0;
+      return;
+    }
+    if (p.turnT > 0) {
+      p.turnT -= dt;
+      return;
+    }
+    if (tryStep(p)) return placeStep(p);
+    const before = Math.floor(p.bumpT / 0.22);
+    p.bumpT += dt;
+    const phase = Math.floor(p.bumpT / 0.22);
+    p.frame = [1, 0, 2, 0][phase % 4];
+    if (phase !== before && phase % 2 === 0) Sound.bump();
+    if (p.bumpT === dt) Sound.bump();
+  }
+
+  function updateAI(dt) {
+    if (state === 'dialogue' && dlg.partner === 'ai') return;
+    ai.bobT += dt;
+    if (ai.moving) {
+      ai.t += dt / 0.7;
+      const e = ai.t < 1 ? 0.5 - Math.cos(ai.t * Math.PI) / 2 : 1;
+      ai.px = (ai.from[0] + (ai.to[0] - ai.from[0]) * e) * T;
+      ai.py = (ai.from[1] + (ai.to[1] - ai.from[1]) * e) * T;
+      if (ai.t >= 1) {
+        ai.tx = ai.to[0];
+        ai.ty = ai.to[1];
+        ai.moving = false;
+        ai.to = null;
+      }
+      return;
+    }
+    ai.wanderT -= dt;
+    if (ai.wanderT > 0) return;
+    ai.wanderT = 3 + Math.random() * 4;
+    const [dx, dy] = DIRV[pick(Object.keys(DIRV))];
+    const nx = ai.tx + dx;
+    const ny = ai.ty + dy;
+    if (nx < AI_AREA.x0 || nx > AI_AREA.x1 || ny < AI_AREA.y0 || ny > AI_AREA.y1) return;
+    if (blockedTile(nx, ny, ai)) return;
+    ai.from = [ai.tx, ai.ty];
+    ai.to = [nx, ny];
+    ai.t = 0;
+    ai.moving = true;
   }
 
   function findTarget() {
     const p = player();
-    const v = DIRV[p.dir];
-    const tx = p.x + v[0] * 9;
-    const ty = p.y - 3 + v[1] * 9;
-    let best = null;
-    let bd = Infinity;
-    for (const id of IDS) {
-      if (id === playerId) continue;
-      const o = people[id];
-      const d = Math.hypot(o.x - tx, o.y - 3 - ty);
-      if (d < 13 && d < bd) {
-        bd = d;
-        best = { kind: 'npc', id };
-      }
-    }
-    const ad = Math.hypot(ai.x - tx, ai.y - 4 - ty);
-    if (ad < 15 && ad < bd) {
-      bd = ad;
-      best = { kind: 'npc', id: 'ai' };
-    }
+    if (p.moving) return null;
+    const [dx, dy] = DIRV[p.dir];
+    const fx = p.tx + dx;
+    const fy = p.ty + dy;
+    const who = occupant(fx, fy, p);
+    if (who === ai) return { kind: 'npc', id: 'ai' };
+    if (who) return { kind: 'npc', id: who.id };
     for (const it of props) {
-      const [zx, zy, zw, zh] = it.zone;
-      if (tx < zx || tx > zx + zw || ty < zy || ty > zy + zh) continue;
-      const d = Math.hypot(tx - (zx + zw / 2), ty - (zy + zh / 2)) * 0.5 + 10;
-      if (d < bd) {
-        bd = d;
-        best = { kind: 'prop', it };
-      }
+      const [x, y, w, h] = it.tiles;
+      if (fx >= x && fx < x + w && fy >= y && fy < y + h) return { kind: 'prop', it };
     }
-    return best;
+    return null;
   }
 
   function targetLabel(t) {
@@ -1307,11 +1525,7 @@
   function interact(t) {
     const me = player();
     if (t.kind === 'npc') {
-      if (t.id === 'ai') faceToward(me, ai.x, ai.y);
-      else {
-        faceToward(me, people[t.id].x, people[t.id].y);
-        faceToward(people[t.id], me.x, me.y);
-      }
+      if (t.id !== 'ai') faceToward(people[t.id], me.px, me.py);
       const key = `${playerId}>${t.id}`;
       const n = talkCount[key] || 0;
       const list = TALKS[key] || [];
@@ -1383,13 +1597,14 @@
     setTyped(0);
     el.dlgLive.textContent = id === 'narrator' ? text : `${NAMES[id]}: ${text}`;
     el.dialogue.classList.add('is-typing');
-    if (id !== 'narrator') paintPortrait(el.portrait, id);
+    if (id !== 'narrator') paintPortrait(el.portrait, id, true);
     emote = kind && id !== 'narrator' ? { who: id, kind, t: 0 } : null;
   }
 
   function advanceDialogue() {
     if (dlg.shown < dlg.full.length) {
       dlg.shown = dlg.full.length;
+      dlg.lastChar = dlg.full.length;
       setTyped(dlg.full.length);
       el.dialogue.classList.remove('is-typing');
       return;
@@ -1437,6 +1652,77 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Start menu
+  // ---------------------------------------------------------------------------
+
+  const MENU = [
+    { id: 'swap', label: () => 'Swap' },
+    { id: 'screen', label: () => `Screen: ${screenMode === 'green' ? 'Green' : 'Colour'}` },
+    { id: 'shell', label: () => `Shell: ${shellTheme === 'purple' ? 'Purple' : 'Grey'}` },
+    { id: 'sound', label: () => `Sound: ${Sound.on ? 'On' : 'Off'}` },
+    { id: 'exit', label: () => 'Exit' },
+  ];
+  const menu = { i: 0 };
+
+  function renderMenu() {
+    el.menuList.replaceChildren(
+      ...MENU.map((m, i) => {
+        const li = document.createElement('li');
+        li.textContent = m.label();
+        li.setAttribute('role', 'menuitem');
+        if (i === menu.i) li.className = 'is-on';
+        li.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          menu.i = i;
+          activateMenu();
+        });
+        return li;
+      }),
+    );
+  }
+
+  function openMenu() {
+    if (state !== 'play') return;
+    state = 'menu';
+    menu.i = 0;
+    el.menu.hidden = false;
+    renderMenu();
+    Sound.open();
+    updateSwitcher();
+  }
+
+  function closeMenu() {
+    if (state !== 'menu') return;
+    state = 'play';
+    el.menu.hidden = true;
+    Sound.close();
+    updateSwitcher();
+  }
+
+  function moveMenu(dir) {
+    if (dir !== 'up' && dir !== 'down') return;
+    menu.i = (menu.i + (dir === 'down' ? 1 : -1) + MENU.length) % MENU.length;
+    Sound.cursor();
+    renderMenu();
+  }
+
+  function activateMenu() {
+    const id = MENU[menu.i].id;
+    if (id === 'swap') {
+      closeMenu();
+      cycleSwitch(1);
+      return;
+    }
+    if (id === 'exit') return closeMenu();
+    if (id === 'screen') setScreen(screenMode === 'green' ? 'colour' : 'green');
+    if (id === 'shell') setShell(shellTheme === 'purple' ? 'grey' : 'purple');
+    if (id === 'sound') toggleSound();
+    Sound.cursor();
+    renderMenu();
+  }
+
+  // ---------------------------------------------------------------------------
   // UI: switcher, toast, hint, title
   // ---------------------------------------------------------------------------
 
@@ -1449,8 +1735,8 @@
     b.setAttribute('aria-pressed', 'false');
     b.setAttribute('aria-label', `Play as ${NAMES[id]}`);
     const c = document.createElement('canvas');
-    c.width = 14;
-    c.height = 12;
+    c.width = 16;
+    c.height = 14;
     paintPortrait(c, id);
     const label = document.createElement('span');
     label.textContent = SHORT[id];
@@ -1459,7 +1745,6 @@
     b.append(c, label, k);
     b.addEventListener('click', () => {
       b.blur();
-      if (state === 'title') start();
       switchTo(id);
     });
     el.switcher.append(b);
@@ -1467,23 +1752,33 @@
   });
 
   function updateSwitcher() {
+    const locked = state !== 'play';
+    el.switcher.setAttribute('aria-hidden', String(locked && state === 'title'));
     for (const id of IDS) {
       whoButtons[id].setAttribute('aria-pressed', String(id === playerId));
-      whoButtons[id].disabled = state === 'dialogue';
+      whoButtons[id].disabled = locked;
     }
   }
 
-  IDS.forEach((id) => {
+  const castCanvases = IDS.map((id) => {
     const fig = document.createElement('figure');
     const c = document.createElement('canvas');
-    c.width = 14;
-    c.height = 20;
-    c.getContext('2d').drawImage(sprites[id].down[0], 0, 0);
+    c.width = 16;
+    c.height = 22;
     const cap = document.createElement('figcaption');
     cap.textContent = SHORT[id];
     fig.append(c, cap);
     el.cast.append(fig);
+    return [c, id];
   });
+  function paintCast() {
+    for (const [c, id] of castCanvases) {
+      const x = c.getContext('2d', { willReadFrequently: true });
+      x.clearRect(0, 0, c.width, c.height);
+      x.drawImage(sprites[id].down[0], 0, 0);
+      finishSmallCanvas(c);
+    }
+  }
 
   let toastTimer = 0;
   function toast(msg) {
@@ -1496,10 +1791,12 @@
   let lastHint = null;
   function updateHint() {
     const key = touchUI ? 'A' : 'Space';
+    const menuKey = touchUI ? 'Start' : 'Esc';
     let html = '';
     if (state === 'dialogue') html = `<kbd>${key}</kbd> Continue`;
+    else if (state === 'menu') html = `<kbd>${key}</kbd> Choose <kbd>${touchUI ? 'B' : 'Esc'}</kbd> Back`;
     else if (state === 'play' && target) html = `<kbd>${key}</kbd> ${targetLabel(target)}`;
-    else if (state === 'play') html = 'Walk over to someone and say hi';
+    else if (state === 'play') html = `Walk over to someone and say hi <kbd>${menuKey}</kbd> Menu`;
     if (html !== lastHint) {
       el.hint.innerHTML = html;
       lastHint = html;
@@ -1509,11 +1806,12 @@
   function switchTo(id) {
     if (state !== 'play' || id === playerId) return;
     const prev = player();
-    prev.moving = false;
-    prev.animT = 0;
+    prev.frame = 0;
+    prev.turnT = 0;
+    prev.bumpT = 0;
     playerId = id;
     const p = player();
-    burst(p.x, p.y - 10);
+    burst(p.px + 8, p.py + 4);
     Sound.swap();
     toast(`You're now ${NAMES[id]}`);
     updateSwitcher();
@@ -1549,6 +1847,8 @@
     if (state !== 'title') return;
     el.title.classList.add('is-hidden');
     el.title.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('is-title');
+    el.switcher.removeAttribute('aria-hidden');
     state = 'play';
     if (Sound.on) Sound.ensure();
     updateSwitcher();
@@ -1564,6 +1864,27 @@
     Sound.set(!Sound.on);
     setSoundUI();
     if (Sound.on) Sound.open();
+    if (state === 'menu') renderMenu();
+  }
+
+  function setScreen(mode) {
+    screenMode = mode;
+    el.lcd.dataset.screen = mode;
+    el.screenBtn.setAttribute('aria-pressed', String(mode === 'green'));
+    el.screenLabel.textContent = mode === 'green' ? 'Green' : 'Colour';
+    store('watercooler:screen', mode);
+    paintCast();
+    if (state === 'dialogue' && dlg.who && dlg.who !== 'narrator') paintPortrait(el.portrait, dlg.who, true);
+    if (state === 'menu') renderMenu();
+  }
+
+  function setShell(theme) {
+    shellTheme = theme;
+    el.device.dataset.shell = theme;
+    el.shellBtn.setAttribute('aria-pressed', String(theme === 'purple'));
+    el.shellLabel.textContent = theme === 'purple' ? 'Purple' : 'Grey';
+    store('watercooler:shell', theme);
+    if (state === 'menu') renderMenu();
   }
 
   // ---------------------------------------------------------------------------
@@ -1579,7 +1900,25 @@
   function action() {
     if (state === 'title') start();
     else if (state === 'dialogue') advanceDialogue();
+    else if (state === 'menu') activateMenu();
     else if (state === 'play' && target) interact(target);
+  }
+
+  function back(step = 1) {
+    if (state === 'title') start();
+    else if (state === 'menu') closeMenu();
+    else if (state === 'dialogue') advanceDialogue();
+    else cycleSwitch(step);
+  }
+
+  function startButton() {
+    if (state === 'title') start();
+    else if (state === 'menu') closeMenu();
+    else openMenu();
+  }
+
+  function pressDir(dir) {
+    if (state === 'menu') moveMenu(dir);
   }
 
   // The handheld's buttons mirror every input source (keys, mouse, touch), so a
@@ -1598,21 +1937,19 @@
   }
 
   function renderDpad() {
-    const x = Math.sign((keys.right ? 1 : 0) - (keys.left ? 1 : 0) + touchDir.x);
-    const y = Math.sign((keys.down ? 1 : 0) - (keys.up ? 1 : 0) + touchDir.y);
-    el.dpad.classList.toggle('is-up', y < 0);
-    el.dpad.classList.toggle('is-down', y > 0);
-    el.dpad.classList.toggle('is-left', x < 0);
-    el.dpad.classList.toggle('is-right', x > 0);
+    const d = heldDir();
+    for (const dir of ['up', 'down', 'left', 'right']) el.dpad.classList.toggle(`is-${dir}`, d === dir);
   }
 
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const onLink = document.activeElement && document.activeElement.matches('a, #sound');
-    if (MOVE_KEYS[e.code]) {
-      keys[MOVE_KEYS[e.code]] = true;
-      renderDpad();
+    const onLink = document.activeElement && document.activeElement.matches('a, .bar button');
+    const dir = MOVE_KEYS[e.code];
+    if (dir) {
       e.preventDefault();
+      if (!dirStack.includes(dir)) dirStack.push(dir);
+      renderDpad();
+      pressDir(dir);
       return;
     }
     if (ACTION_KEYS.has(e.code)) {
@@ -1625,15 +1962,26 @@
     if (e.code === 'Tab' && state !== 'title' && !onLink) {
       e.preventDefault();
       hold('b', e.code, true);
-      cycleSwitch(e.shiftKey ? -1 : 1);
+      if (!e.repeat) back(e.shiftKey ? -1 : 1);
       return;
     }
     if (e.code === 'KeyQ') {
       hold('b', e.code, true);
-      return cycleSwitch(1);
+      if (!e.repeat) back(1);
+      return;
+    }
+    if (e.code === 'Escape' || e.code === 'KeyP') {
+      e.preventDefault();
+      hold('start', e.code, true);
+      if (!e.repeat) startButton();
+      return;
     }
     if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') {
       switchTo(IDS[Number(e.code.slice(-1)) - 1]);
+      return;
+    }
+    if (e.code === 'KeyG' && !e.repeat) {
+      setScreen(screenMode === 'green' ? 'colour' : 'green');
       return;
     }
     if (e.code === 'KeyM') {
@@ -1643,16 +1991,27 @@
   });
 
   window.addEventListener('keyup', (e) => {
-    if (MOVE_KEYS[e.code]) {
-      keys[MOVE_KEYS[e.code]] = false;
+    const dir = MOVE_KEYS[e.code];
+    if (dir) {
+      // Two keys can map to the same direction (arrow and WASD), so only drop it once both are up.
+      const others = Object.entries(MOVE_KEYS).some(([code, d]) => d === dir && code !== e.code && heldCodes.has(code));
+      if (!others) {
+        const i = dirStack.indexOf(dir);
+        if (i >= 0) dirStack.splice(i, 1);
+      }
       renderDpad();
     }
     releaseSource(e.code);
   });
 
+  const heldCodes = new Set();
+  window.addEventListener('keydown', (e) => heldCodes.add(e.code), { capture: true });
+  window.addEventListener('keyup', (e) => heldCodes.delete(e.code), { capture: true });
+
   window.addEventListener('blur', () => {
-    keys.up = keys.down = keys.left = keys.right = false;
-    touchDir.x = touchDir.y = 0;
+    dirStack.length = 0;
+    heldCodes.clear();
+    touchDir = null;
     for (const name in holders) {
       holders[name].clear();
       shellButtons[name].classList.remove('is-down');
@@ -1663,6 +2022,14 @@
   el.sound.addEventListener('click', () => {
     toggleSound();
     el.sound.blur();
+  });
+  el.screenBtn.addEventListener('click', () => {
+    setScreen(screenMode === 'green' ? 'colour' : 'green');
+    el.screenBtn.blur();
+  });
+  el.shellBtn.addEventListener('click', () => {
+    setShell(shellTheme === 'purple' ? 'grey' : 'purple');
+    el.shellBtn.blur();
   });
   el.start.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1692,27 +2059,26 @@
     } catch {}
   }
 
-  // D-pad: slide your thumb around it, eight directions.
+  // D-pad: slide your thumb around it. Four directions, like the real thing.
   let dpadPointer = null;
   function dpadFrom(e) {
     const r = el.dpad.getBoundingClientRect();
     const dx = e.clientX - (r.left + r.width / 2);
     const dy = e.clientY - (r.top + r.height / 2);
-    touchDir.x = 0;
-    touchDir.y = 0;
+    let dir = null;
     if (Math.hypot(dx, dy) > r.width * 0.12) {
-      const oct = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
-      const map = {
-        0: [1, 0], 1: [1, 1], 2: [0, 1], 3: [-1, 1], 4: [-1, 0], '-4': [-1, 0], '-3': [-1, -1], '-2': [0, -1], '-1': [1, -1],
-      };
-      [touchDir.x, touchDir.y] = map[oct];
+      dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+    }
+    if (dir !== touchDir) {
+      touchDir = dir;
+      if (dir) pressDir(dir);
     }
     renderDpad();
   }
   function dpadEnd(e) {
     if (e.pointerId !== dpadPointer) return;
     dpadPointer = null;
-    touchDir.x = touchDir.y = 0;
+    touchDir = null;
     renderDpad();
   }
   el.dpad.addEventListener('pointerdown', (e) => {
@@ -1740,11 +2106,9 @@
     btn.addEventListener('pointercancel', up);
   }
   pressable('a', action);
-  pressable('b', () => (state === 'title' ? start() : cycleSwitch(1)));
+  pressable('b', () => back(1));
   pressable('select', toggleSound);
-  pressable('start', () => {
-    if (state === 'title') start();
-  });
+  pressable('start', startButton);
 
   // ---------------------------------------------------------------------------
   // Layout
@@ -1762,13 +2126,16 @@
       el.canvas.width = w;
       el.canvas.height = ROOM_H;
       mainCtx.imageSmoothingEnabled = false;
-      vignette = null;
     }
     viewW = w;
-    camX = clamp(player().x - viewW / 2, 0, ROOM_W - viewW);
+    el.stage.style.setProperty('--cols', String(w));
+    camX = cameraGoal();
   }
   window.addEventListener('resize', resize);
   if ('ResizeObserver' in window) new ResizeObserver(resize).observe(el.stage);
+
+  // The camera is locked to the player, so the world scrolls under them.
+  const cameraGoal = () => clamp(Math.round(player().px + 8 - viewW / 2), 0, ROOM_W - viewW);
 
   // ---------------------------------------------------------------------------
   // Loop
@@ -1778,57 +2145,33 @@
     time += dt;
     const me = player();
 
-    if (state === 'play') {
-      const dx = clamp((keys.right ? 1 : 0) - (keys.left ? 1 : 0) + touchDir.x, -1, 1);
-      const dy = clamp((keys.down ? 1 : 0) - (keys.up ? 1 : 0) + touchDir.y, -1, 1);
-      if (dx || dy) {
-        const len = Math.hypot(dx, dy);
-        const sp = WALK_SPEED * dt;
-        const mx = (dx / len) * sp;
-        const my = (dy / len) * sp;
-        if (!blocked(me.x + mx, me.y, me)) me.x += mx;
-        if (!blocked(me.x, me.y + my, me)) me.y += my;
-        const horiz = dx > 0 ? 'right' : dx < 0 ? 'left' : null;
-        const vert = dy > 0 ? 'down' : dy < 0 ? 'up' : null;
-        if (me.dir !== horiz && me.dir !== vert) me.dir = horiz || vert;
-        const prev = frameOf(me);
-        me.moving = true;
-        me.animT += dt;
-        const f = frameOf(me);
-        if (f !== prev && f !== 0) Sound.step();
-      } else {
-        me.moving = false;
-        me.animT = 0;
-      }
-      target = findTarget();
-    } else {
-      me.moving = false;
-      me.animT = 0;
+    for (const id of IDS) {
+      const p = people[id];
+      updateWalker(p, id === playerId && state === 'play' ? heldDir() : null, dt);
+      p.blink -= dt;
+      if (p.blink < -0.13) p.blink = 2 + Math.random() * 3.5;
     }
+    target = state === 'play' ? findTarget() : null;
 
     for (const id of IDS) {
       const p = people[id];
-      p.blink -= dt;
-      if (p.blink < -0.13) p.blink = 2 + Math.random() * 3.5;
-      if (id === playerId || state === 'title') continue;
+      if (id === playerId || state === 'title' || p.moving) continue;
       if (state === 'dialogue' && dlg.partner === id) continue;
-      const d = Math.hypot(me.x - p.x, me.y - p.y);
-      if (d < 34) {
-        faceToward(p, me.x, me.y);
+      const d = Math.abs(me.tx - p.tx) + Math.abs(me.ty - p.ty);
+      if (d <= 2) {
+        faceToward(p, me.px, me.py);
         p.lookT = 1.5;
       } else {
         p.lookT -= dt;
         if (p.lookT <= 0) {
           p.lookT = 2.5 + Math.random() * 4;
-          if (Math.random() < 0.6) faceToward(p, 160, 108);
+          if (Math.random() < 0.6) faceToward(p, COOLER_TILE[0] * T, COOLER_TILE[1] * T);
           else p.dir = pick(['down', 'left', 'right', 'down']);
         }
       }
     }
 
-    if (!(state === 'dialogue' && dlg.partner === 'ai')) ai.t += dt;
-    ai.x = 206 + Math.sin(ai.t * 0.45) * 14;
-    ai.y = 94 + Math.sin(ai.t * 0.9) * 5;
+    updateAI(dt);
     ai.blink -= dt;
     if (ai.blink < -0.15) ai.blink = 2.5 + Math.random() * 3;
 
@@ -1855,42 +2198,24 @@
 
     if (state === 'dialogue') updateDialogue(dt);
 
-    const goal = clamp(me.x - viewW / 2, 0, ROOM_W - viewW);
-    camX += (goal - camX) * Math.min(1, dt * 5);
-
+    camX = cameraGoal();
     updateHint();
-  }
-
-  let vignette = null;
-  function drawVignette() {
-    const w = el.canvas.width;
-    if (!vignette || vignette.width !== w) {
-      const [c, x] = makeCanvas(w, ROOM_H);
-      const g = x.createRadialGradient(w / 2, ROOM_H * 0.55, Math.min(w, ROOM_H) * 0.35, w / 2, ROOM_H * 0.55, Math.max(w, ROOM_H) * 0.78);
-      g.addColorStop(0, 'rgba(40, 20, 30, 0)');
-      g.addColorStop(1, 'rgba(40, 20, 30, 0.26)');
-      x.fillStyle = g;
-      x.fillRect(0, 0, w, ROOM_H);
-      vignette = c;
-    }
-    mainCtx.drawImage(vignette, 0, 0);
   }
 
   function render() {
     ctx = mainCtx;
-    ctx.setTransform(1, 0, 0, 1, -Math.round(camX), 0);
+    ctx.setTransform(1, 0, 0, 1, -camX, 0);
     ctx.drawImage(bg, 0, 0);
-    drawWindow(14, 5, 52, 24, time, 1);
-    drawWindow(254, 5, 52, 24, time, 2);
+    drawWindow(18, 6, 44, 23, time, 1);
+    drawWindow(274, 6, 44, 23, time, 2);
     drawClock();
-    drawSunbeams(time);
 
     const ents = decor.slice();
     for (const id of IDS) {
       const p = people[id];
-      ents.push({ y: p.y, draw: () => drawPerson(p) });
+      ents.push({ y: p.py + 16, draw: () => drawPerson(p) });
     }
-    ents.push({ y: ai.y, draw: drawAI });
+    ents.push({ y: ai.py + 16, draw: drawAI });
     ents.sort((a, b) => a.y - b.y);
     for (const e of ents) e.draw(time);
 
@@ -1917,7 +2242,7 @@
       }
       if (target) {
         const [x, y] = target.kind === 'npc' ? headPos(target.id) : target.it.mark;
-        drawArrow(x, y - 1 - Math.round(Math.abs(Math.sin(time * 5)) * 2));
+        drawArrow(x, y - 1 - (Math.floor(time * 3) % 2));
       }
     }
     if (state === 'dialogue' && emote) {
@@ -1927,7 +2252,7 @@
     }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    drawVignette();
+    if (screenMode === 'green') quantize(mainCtx, el.canvas.width, el.canvas.height);
   }
 
   let last = performance.now();
@@ -1961,6 +2286,8 @@
 
   Sound.init();
   setSoundUI();
+  setShell(recall('watercooler:shell', 'grey') === 'purple' ? 'purple' : 'grey');
+  setScreen(recall('watercooler:screen', 'colour') === 'green' ? 'green' : 'colour');
   updateSwitcher();
   resize();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
