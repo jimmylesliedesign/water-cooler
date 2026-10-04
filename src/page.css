@@ -1,0 +1,398 @@
+/* Palette and type from the game's own stylesheet (public/game/style.css). */
+:root {
+  --bg: #1d1d1d;
+  --ink: #2b2230;
+  --paper: #fdf6e3;
+  --cream: #f3e9d2;
+  --muted: #a99db0;
+  --honey: #f2c46d;
+  --font: 'Pixelify Sans', ui-monospace, 'SF Mono', Menlo, monospace;
+  --fade: 0.15s;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: radial-gradient(120% 80% at 50% 0%, #262626 0%, var(--bg) 62%);
+  color: var(--cream);
+  font-family: var(--font);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Header ---------- */
+
+.bar {
+  position: fixed;
+  z-index: 10;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  pointer-events: none;
+}
+
+.bar > * {
+  pointer-events: auto;
+}
+
+.tool {
+  font: inherit;
+  font-size: 15px;
+  color: var(--muted);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s ease-out, background-color 0.15s ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tool:hover {
+    color: var(--cream);
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.tool:focus-visible {
+  outline: 2px solid var(--honey);
+  outline-offset: 2px;
+}
+
+.tool[aria-pressed='true'] {
+  color: var(--cream);
+}
+
+.tool .sound__on,
+.tool[aria-pressed='true'] .sound__off {
+  display: none;
+}
+
+.tool[aria-pressed='true'] .sound__on {
+  display: inline;
+}
+
+@media (max-width: 520px) {
+  .bar {
+    padding: 8px 8px;
+  }
+
+  .tool {
+    font-size: 13px;
+    padding: 6px;
+    gap: 6px;
+  }
+}
+
+/* ---------- Scene ---------- */
+
+.scene {
+  position: fixed;
+  inset: 0;
+}
+
+.gl,
+.gl canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.gl {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+body:not([data-state='loading']) .gl {
+  opacity: 1;
+}
+
+/* A flat stand-in with the model's proportions while three.js and the model load. */
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-bottom: 12vh;
+  transition: opacity 0.6s ease;
+}
+
+body:not([data-state='loading']) .placeholder {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.placeholder__body {
+  position: relative;
+  height: min(58vh, 120vw);
+  aspect-ratio: 1.077 / 1.782;
+  border-radius: 6% 6% 22% 6% / 4% 4% 13% 4%;
+  background: linear-gradient(165deg, #3a3640, #2a2730 70%);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+}
+
+.placeholder__screen {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: 6%;
+  height: 46%;
+  border-radius: 4% 4% 18% 4%;
+  background: #121114;
+}
+
+.placeholder__screen::after {
+  content: '';
+  position: absolute;
+  inset: 13% 15% 18%;
+  background: #3d3240;
+  animation: placeholder 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes placeholder {
+  to {
+    background: #4b3f50;
+  }
+}
+
+/* ---------- Game overlay ---------- */
+
+.game {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 0;
+  display: block;
+  background: #3d3240;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--fade) linear;
+}
+
+body[data-state='play'] .game {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* No 3D: the original 2D handheld page, full size. */
+body[data-state='fallback'] .bar,
+body[data-state='fallback'] .gl,
+body[data-state='fallback'] .placeholder,
+body[data-state='fallback'] .prompt {
+  display: none;
+}
+
+body[data-state='fallback'] .game {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------- Prompts ---------- */
+
+.prompt,
+.esc-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.prompt {
+  /* Placed just under the device by the scene; this is the pre-layout guess. */
+  top: var(--prompt-y, 82vh);
+  font-size: 18px;
+  opacity: 0;
+}
+
+body[data-state='idle'] .prompt {
+  opacity: 1;
+}
+
+.esc-hint {
+  bottom: 14px;
+  font-size: 14px;
+  opacity: 0;
+}
+
+body[data-state='play']:not(.is-touch) .esc-hint {
+  opacity: 0.8;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 2.2em;
+  margin: 0 0.25em;
+  padding: 0.12em 0.6em 0.18em;
+  font: inherit;
+  font-size: 0.85em;
+  line-height: 1.2;
+  color: var(--ink);
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 0 3px 0 var(--ink);
+  transform: translateY(-2px);
+}
+
+.only-touch {
+  display: none;
+}
+
+body.is-touch .only-touch {
+  display: inline;
+}
+
+body.is-touch .only-keys {
+  display: none;
+}
+
+/* ---------- Touch controls ---------- */
+
+.pad {
+  position: fixed;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(18, 16, 20, 0.92), rgba(18, 16, 20, 0.75));
+  touch-action: none;
+}
+
+body.is-touch[data-state='play'] .pad {
+  display: flex;
+}
+
+.pad button {
+  font: inherit;
+  color: var(--cream);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.pad__dpad {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  flex: none;
+}
+
+.pad__dir {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: #2a2a30;
+  box-shadow: 0 3px 0 #111;
+}
+
+.pad__dir.is-down,
+.pad__btn.is-down,
+.pad__pill.is-down {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #111;
+  filter: brightness(1.25);
+}
+
+.pad__dir--up { left: 40px; top: 0; border-radius: 6px 6px 0 0; }
+.pad__dir--down { left: 40px; top: 80px; border-radius: 0 0 6px 6px; }
+.pad__dir--left { left: 0; top: 40px; border-radius: 6px 0 0 6px; }
+.pad__dir--right { left: 80px; top: 40px; border-radius: 0 6px 6px 0; }
+
+.pad__dpad::after {
+  content: '';
+  position: absolute;
+  left: 40px;
+  top: 40px;
+  width: 40px;
+  height: 40px;
+  background: #2a2a30;
+  pointer-events: none;
+}
+
+.pad__mid {
+  display: flex;
+  gap: 10px;
+  align-self: flex-end;
+}
+
+.pad__pill {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #3a3640;
+  box-shadow: 0 3px 0 #111;
+  color: var(--muted);
+}
+
+.pad__ab {
+  display: flex;
+  gap: 14px;
+  transform: rotate(-20deg);
+}
+
+.pad__btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 600;
+  background: #a3245b;
+  box-shadow: 0 3px 0 #5c1233;
+}
+
+.pad__btn--b {
+  margin-top: 26px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .placeholder__screen::after {
+    animation: none;
+  }
+}

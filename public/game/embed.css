@@ -1,0 +1,45 @@
+/* Embedded mode: the 3D page frames this document exactly over the model's
+   screen, so strip the handheld and the page chrome and let the LCD fill it. */
+
+.embed body {
+  background: #3d3240;
+}
+
+.embed .bar,
+.embed .dock,
+.embed .device__ridge,
+.embed .bezel__strip,
+.embed .led,
+.embed .device__brand,
+.embed .controls,
+.embed .device__grain,
+.embed .bezel::after,
+.embed .lcd::after {
+  display: none;
+}
+
+.embed .app {
+  display: block;
+  min-height: 0;
+  padding: 0;
+}
+
+.embed .device-wrap,
+.embed .device,
+.embed .bezel,
+.embed .lcd {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  aspect-ratio: auto;
+  margin: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.embed .lcd {
+  background: #3d3240;
+}
