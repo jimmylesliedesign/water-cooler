@@ -187,7 +187,7 @@ function fallback(err) {
   frame.removeAttribute('aria-hidden');
   frame.tabIndex = 0;
   frame.addEventListener('load', () => frame.contentWindow.focus(), { once: true });
-  frame.src = '/game/index.html';
+  frame.src = 'game/index.html';
 }
 
 // ---------------------------------------------------------------------------
