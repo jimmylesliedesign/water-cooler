@@ -290,6 +290,15 @@ async function boot() {
 
 requestAnimationFrame(() => setTimeout(boot, 0));
 
+// Free the GPU resources and listeners when the page goes away for good
+// (kept as-is if it's only parked in the back/forward cache).
+window.addEventListener('pagehide', (e) => {
+  if (e.persisted || !scene) return;
+  scene.dispose();
+  scene = null;
+  if (soundObserver) soundObserver.disconnect();
+});
+
 // Debug hook for checking states and framing from the console.
 window.__gameboy = {
   get state() {
