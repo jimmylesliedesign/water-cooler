@@ -133,6 +133,13 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   // ---- Model ----------------------------------------------------------------
 
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  // The model's textures are embedded, and by default three.js reads them with
+  // fetch() on blob: URLs, which a strict Content-Security-Policy (connect-src)
+  // refuses. Image elements are governed by img-src instead, so use those.
+  loader.register((parser) => {
+    parser.textureLoader = new THREE.TextureLoader(parser.options.manager);
+    return { name: 'image-element-textures' };
+  });
   const gltf = await loader.loadAsync(MODEL_URL);
   const model = gltf.scene;
 
@@ -145,6 +152,9 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     if (mats.some((m) => m.name === 'Glass')) glass = o;
   });
   console.info('[gameboy] meshes and materials', JSON.stringify(names));
+  // GLTFLoader only logs a texture it couldn't load, and the device would
+  // render blank white; treat that as a failed load so the 2D fallback runs.
+  if (!glass || !glass.material.map) throw new Error('The Game Boy model loaded without its textures');
 
   // The device turns about its own centre.
   const device = new THREE.Group();
