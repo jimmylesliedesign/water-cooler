@@ -166,9 +166,6 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   patchLens(glass.material, lensAlpha);
   // The glossy lens mirrors the whole room at some angles and hides the screen; tone it down.
   glass.material.envMapIntensity = 0.12;
-  // Its rough finish also spreads the key light into a milky haze; a smoother
-  // lens keeps the highlight to a small glint.
-  glass.material.roughness = 0.25;
 
   // ---- Screen ---------------------------------------------------------------
 
