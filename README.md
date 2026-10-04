@@ -15,7 +15,9 @@ The game itself is plain HTML, CSS and JavaScript with no dependencies (aside fr
   - `game.js` – sprites, office, movement, dialogue engine, sound
   - `dialogue.js` – **all of the writing**. Edit this to change or add conversations.
   - `style.css` – the original 2D handheld, still used as the no-WebGL fallback
-- `public/models/gameboy.glb` – optimised model (built from `game_boy_color.glb` with `npm run optimize-model`)
+- `public/models/gameboy.glb` – the model the page loads, built by `npm run build-model` from the original `game_boy_color.glb`
+  - `model-src/patches/` – texture patches it pastes in: JIM BOY on the lens and Jimtendo on the shell's badge (colour and normal map)
+  - `scripts/build-model.mjs` – applies the patches and optimises the model
 
 ## Run locally
 
