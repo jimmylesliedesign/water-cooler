@@ -68,7 +68,14 @@ export function createScreenPainter(frame) {
   }
 
   function paintText(node, cs, doc) {
-    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    // Draw with whatever the game actually laid out with: if its web font
+    // hasn't loaded there, the browser used the next family in the stack.
+    let font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    if (doc.fonts && !doc.fonts.check(font)) {
+      const rest = cs.fontFamily.split(',').slice(1).join(',') || 'monospace';
+      font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${rest}`;
+    }
+    ctx.font = font;
     if ('letterSpacing' in ctx) ctx.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
     const ascent = ctx.measureText('Hg').fontBoundingBoxAscent;
     const shadows = parseShadows(cs.textShadow).reverse();

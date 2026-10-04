@@ -153,6 +153,11 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
 
   const lensAlpha = { value: LENS_IDLE };
   patchLens(glass.material, lensAlpha);
+  // The glossy lens mirrors the whole room at some angles and hides the screen; tone it down.
+  glass.material.envMapIntensity = 0.12;
+  // Its rough finish also spreads the key light into a milky haze; a smoother
+  // lens keeps the highlight to a small glint.
+  glass.material.roughness = 0.25;
 
   // ---- Screen ---------------------------------------------------------------
 
@@ -186,10 +191,13 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   screenMesh.position.set(screenCentre.x, screenCentre.y, screenZ);
   device.add(screenMesh);
 
-  // Soft additive glow just in front of the screen.
+  // Soft additive glow from the screen. It sits just behind the device so the
+  // shell occludes it and only the halo around the silhouette shows; in front,
+  // additive light over the glossy lens reads as a milky haze.
   const glowTex = radialTexture([
-    [0, 'rgba(255,236,200,0.55)'],
-    [0.35, 'rgba(242,196,109,0.18)'],
+    [0, 'rgba(255,226,170,0.32)'],
+    [0.4, 'rgba(255,214,150,0.14)'],
+    [0.7, 'rgba(242,196,109,0.04)'],
     [1, 'rgba(242,196,109,0)'],
   ]);
   const glowMat = new THREE.SpriteMaterial({
@@ -197,12 +205,12 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     transparent: true,
-    opacity: 0.32,
+    opacity: 1,
     toneMapped: false,
   });
   const glow = new THREE.Sprite(glowMat);
-  glow.scale.set(screenSize.x * 2.4, screenSize.y * 2.4, 1);
-  glow.position.set(screenCentre.x, screenCentre.y, screenZ + size.z * 0.6);
+  glow.scale.set(screenSize.x * 3.2, screenSize.x * 3.2, 1);
+  glow.position.set(screenCentre.x, screenCentre.y, local.min.z - size.z * 0.2);
   device.add(glow);
 
   // Soft contact shadow on the "floor" under the device.
@@ -372,7 +380,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     // Gentle glow pulse while idle; gone (and the screen exactly 1:1) in play.
     const pulse = still ? 0 : Math.sin(time * 1.6) * 0.5 + 0.5;
     const idleness = 1 - zoom;
-    glowMat.opacity = (0.26 + pulse * 0.1) * idleness;
+    glowMat.opacity = (0.75 + pulse * 0.25) * idleness;
     glow.visible = glowMat.opacity > 0.001;
     screenMat.emissiveIntensity = 1 + pulse * 0.05 * idleness;
   }
