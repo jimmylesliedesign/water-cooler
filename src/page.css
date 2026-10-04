@@ -62,6 +62,21 @@ body {
   pointer-events: auto;
 }
 
+/* Zoomed in, the device runs up behind the header; keep the links legible. */
+.bar::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 -24px;
+  z-index: -1;
+  background: linear-gradient(rgba(29, 29, 29, 0.9) 40%, rgba(29, 29, 29, 0));
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+body:is([data-state='zoom-in'], [data-state='play']) .bar::before {
+  opacity: 1;
+}
+
 .tool {
   font: inherit;
   font-size: 15px;
@@ -297,9 +312,11 @@ body.is-touch .only-keys {
   display: none;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, rgba(18, 16, 20, 0.92), rgba(18, 16, 20, 0.75));
+  height: calc(164px + env(safe-area-inset-bottom));
+  padding: 10px 16px calc(34px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid #2c2c2c;
+  box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.35);
   touch-action: none;
 }
 
@@ -314,73 +331,79 @@ body.is-touch[data-state='play'] .pad {
   padding: 0;
   cursor: pointer;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .pad__dpad {
   position: relative;
-  width: 120px;
-  height: 120px;
+  width: 114px;
+  height: 114px;
   flex: none;
 }
 
 .pad__dir {
   position: absolute;
-  width: 40px;
-  height: 40px;
-  background: #2a2a30;
-  box-shadow: 0 3px 0 #111;
+  width: 38px;
+  height: 38px;
+  background: #2f2f36;
+  box-shadow: 0 3px 0 #0e0e10;
 }
 
 .pad__dir.is-down,
 .pad__btn.is-down,
 .pad__pill.is-down {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 #111;
+  box-shadow: 0 1px 0 #0e0e10;
   filter: brightness(1.25);
 }
 
-.pad__dir--up { left: 40px; top: 0; border-radius: 6px 6px 0 0; }
-.pad__dir--down { left: 40px; top: 80px; border-radius: 0 0 6px 6px; }
-.pad__dir--left { left: 0; top: 40px; border-radius: 6px 0 0 6px; }
-.pad__dir--right { left: 80px; top: 40px; border-radius: 0 6px 6px 0; }
+.pad__dir--up { left: 38px; top: 0; border-radius: 6px 6px 0 0; }
+.pad__dir--down { left: 38px; top: 76px; border-radius: 0 0 6px 6px; }
+.pad__dir--left { left: 0; top: 38px; border-radius: 6px 0 0 6px; }
+.pad__dir--right { left: 76px; top: 38px; border-radius: 0 6px 6px 0; }
 
 .pad__dpad::after {
   content: '';
   position: absolute;
-  left: 40px;
-  top: 40px;
-  width: 40px;
-  height: 40px;
-  background: #2a2a30;
+  left: 38px;
+  top: 38px;
+  width: 38px;
+  height: 38px;
+  background: #2f2f36;
   pointer-events: none;
 }
 
 .pad__mid {
+  position: absolute;
+  left: 50%;
+  bottom: calc(8px + env(safe-area-inset-bottom));
   display: flex;
   gap: 10px;
-  align-self: flex-end;
+  transform: translateX(-50%);
 }
 
 .pad__pill {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 6px 12px;
+  padding: 5px 12px;
   border-radius: 999px;
-  background: #3a3640;
-  box-shadow: 0 3px 0 #111;
+  background: #34343a;
+  box-shadow: 0 3px 0 #0e0e10;
   color: var(--muted);
 }
 
 .pad__ab {
   display: flex;
-  gap: 14px;
+  gap: 12px;
+  padding-right: 4px;
   transform: rotate(-20deg);
 }
 
 .pad__btn {
-  width: 56px;
-  height: 56px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   font-size: 18px;
   font-weight: 600;

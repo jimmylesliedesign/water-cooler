@@ -100,8 +100,9 @@ function patchLens(material, uniform) {
  * options.beforeRender called every frame while the scene is looping
  * options.onLayout     called after any size change, once framing is recomputed
  * options.headerHeight () => px to keep clear at the top in play framing
+ * options.footerHeight () => px to keep clear at the bottom (the touch pad)
  */
-export async function createScene({ container, screen, beforeRender, onLayout, headerHeight }) {
+export async function createScene({ container, screen, beforeRender, onLayout, headerHeight, footerHeight = () => 0 }) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -261,8 +262,8 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     const ratio = screenSize.y / screenSize.x;
     const top = Math.max(headerHeight() + 12, height * (portrait ? 0.1 : 0.08));
     let sw = width * (portrait ? 0.88 : 0.62);
-    // Keep some of the body visible under the screen (and room for the touch pad on phones).
-    const maxH = height - top - height * (portrait ? 0.34 : 0.14);
+    // Keep some of the body visible under the screen, and clear of the touch pad.
+    const maxH = height - top - Math.max(height * (portrait ? 0.3 : 0.14), footerHeight() + 16);
     if (sw * ratio > maxH) sw = maxH / ratio;
     const sh = sw * ratio;
     const d = (screenSize.x / 2) * height / (sw * tanHalf);
@@ -478,7 +479,9 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
       pointer.y = THREE.MathUtils.clamp(y, -1, 1);
     },
     setTouch(on) {
+      if (touch === on) return;
       touch = on;
+      resize();
     },
     screenChanged(resized) {
       // A new size needs fresh GPU storage rather than an update in place.

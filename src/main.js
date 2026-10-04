@@ -18,6 +18,8 @@ const bar = document.querySelector('.bar');
 const pad = $('pad');
 
 const FADE_MS = 150;
+// Matches .pad's height in page.css (plus the safe area, which play framing ignores).
+const PAD_HEIGHT = 164;
 const SOUND_KEY = 'watercooler:sound';
 
 let state = 'loading';
@@ -184,6 +186,7 @@ function fallback(err) {
   frame.removeAttribute('style');
   frame.removeAttribute('aria-hidden');
   frame.tabIndex = 0;
+  frame.addEventListener('load', () => frame.contentWindow.focus(), { once: true });
   frame.src = '/game/index.html';
 }
 
@@ -265,6 +268,7 @@ async function boot() {
       container: gl,
       screen: painter.canvas,
       headerHeight: () => bar.getBoundingClientRect().bottom,
+      footerHeight: () => (body.classList.contains('is-touch') ? PAD_HEIGHT : 0),
       onLayout: layout,
       beforeRender() {
         if (state === 'play' || !scene) return;
