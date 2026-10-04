@@ -248,13 +248,14 @@ body[data-state='idle'] .prompt {
 }
 
 .esc-hint {
-  bottom: 14px;
+  z-index: 11;
+  top: 20px;
   font-size: 14px;
   opacity: 0;
 }
 
 body[data-state='play']:not(.is-touch) .esc-hint {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 kbd {

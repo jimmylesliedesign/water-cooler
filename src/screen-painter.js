@@ -19,6 +19,21 @@ function parseShadows(value) {
   });
 }
 
+// True if the first family in the stack is a web font that has loaded in
+// `doc` (fonts.check() also says true for one that failed to load).
+function webFontReady(doc, stack) {
+  const first = stack.split(',')[0].trim().replace(/^["']|["']$/g, '');
+  if (!doc.fonts) return true;
+  let known = false;
+  for (const face of doc.fonts) {
+    if (face.family.replace(/^["']|["']$/g, '') !== first) continue;
+    if (face.status === 'loaded') return true;
+    known = true;
+  }
+  // Not a web font at all (a local family), so the browser has it.
+  return !known;
+}
+
 const isClear = (color) => !color || color === 'transparent' || /rgba\(.*,\s*0\)$/.test(color);
 
 export function createScreenPainter(frame) {
@@ -71,7 +86,7 @@ export function createScreenPainter(frame) {
     // Draw with whatever the game actually laid out with: if its web font
     // hasn't loaded there, the browser used the next family in the stack.
     let font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    if (doc.fonts && !doc.fonts.check(font)) {
+    if (!webFontReady(doc, cs.fontFamily)) {
       const rest = cs.fontFamily.split(',').slice(1).join(',') || 'monospace';
       font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${rest}`;
     }

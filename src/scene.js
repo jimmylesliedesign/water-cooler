@@ -58,7 +58,18 @@ function findLcd(mesh, space) {
     tris++;
     for (let k = 0; k < 3; k++) box.expandByPoint(v.fromBufferAttribute(pos, vi(i + k)).applyMatrix4(toSpace));
   }
-  return tris ? { box, tris } : null;
+  if (!tris) return null;
+  // The front of the glass over the LCD: the highest point of any triangle
+  // that overlaps it (the lens triangles are large, so test their extents).
+  let front = box.max.z;
+  const tri = new THREE.Box3();
+  for (let i = 0; i < count; i += 3) {
+    tri.makeEmpty();
+    for (let k = 0; k < 3; k++) tri.expandByPoint(v.fromBufferAttribute(pos, vi(i + k)).applyMatrix4(toSpace));
+    const overlaps = tri.max.x > box.min.x && tri.min.x < box.max.x && tri.max.y > box.min.y && tri.min.y < box.max.y;
+    if (overlaps) front = Math.max(front, tri.max.z);
+  }
+  return { box, tris, front };
 }
 
 // Lets the lens window's alpha be faded by a uniform, leaving the rest of the lens alone.
@@ -149,7 +160,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
 
   const lcd = glass && findLcd(glass, device);
   if (!lcd) throw new Error('Could not find the screen on the Game Boy model');
-  console.info('[gameboy] screen: LCD quad in', glass.name || '(unnamed)', 'material Glass,', lcd.tris, 'triangles');
+  console.info('[gameboy] screen: LCD quad in', glass.name || '(unnamed)', 'material Glass,', lcd.tris, 'triangles, z', lcd.box.max.z.toFixed(4), 'lens front', lcd.front.toFixed(4));
 
   const lensAlpha = { value: LENS_IDLE };
   patchLens(glass.material, lensAlpha);
@@ -174,16 +185,16 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
 
   const screenSize = lcd.box.getSize(new THREE.Vector3());
   const screenCentre = lcd.box.getCenter(new THREE.Vector3());
-  const screenZ = lcd.box.max.z + size.z * 0.0015;
-  const screenMat = new THREE.MeshStandardMaterial({
-    color: 0x000000,
-    roughness: 1,
-    metalness: 0,
-    emissive: 0xffffff,
-    emissiveMap: screenTex,
-    emissiveIntensity: 1,
-    envMapIntensity: 0,
-    // The screen shows the game's own colours, untouched by tone mapping.
+  // Idle, the screen sits on the LCD, recessed under the lens. The lens's
+  // opaque frame overlaps the LCD's edges by a few pixels through parallax,
+  // so during the zoom the screen slides up to the front of the glass, where
+  // nothing covers it and it can match the real game overlay exactly.
+  const lift = size.z * 0.0015;
+  const screenZ = lcd.box.max.z + lift;
+  const screenFrontZ = lcd.front + lift;
+  const screenMat = new THREE.MeshBasicMaterial({
+    map: screenTex,
+    // Unlit and untouched by tone mapping: the screen shows the game's own colours.
     toneMapped: false,
   });
   const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(screenSize.x, screenSize.y), screenMat);
@@ -259,7 +270,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     const sh = sw * ratio;
     const d = (screenSize.x / 2) * height / (sw * tanHalf);
     const ndcY = 1 - (2 * (top + sh / 2)) / height;
-    playPos.set(screenCentre.x, screenCentre.y - ndcY * d * tanHalf, screenZ + d);
+    playPos.set(screenCentre.x, screenCentre.y - ndcY * d * tanHalf, screenFrontZ + d);
   }
 
   const corners = [
@@ -284,7 +295,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     let y1 = -Infinity;
     for (const c of corners) {
       // Corners in device space with the device at rest (no tilt or drift).
-      tmp.set(c.x * screenSize.x + screenCentre.x, c.y * screenSize.y + screenCentre.y, screenZ).project(probe);
+      tmp.set(c.x * screenSize.x + screenCentre.x, c.y * screenSize.y + screenCentre.y, screenFrontZ).project(probe);
       const x = (tmp.x * 0.5 + 0.5) * width;
       const y = (-tmp.y * 0.5 + 0.5) * height;
       x0 = Math.min(x0, x);
@@ -324,6 +335,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
 
   function applyZoom(e) {
     camera.position.lerpVectors(idlePos, playPos, e);
+    screenMesh.position.z = THREE.MathUtils.lerp(screenZ, screenFrontZ, e);
     lensAlpha.value = LENS_IDLE * (1 - e);
   }
 
@@ -382,7 +394,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     const idleness = 1 - zoom;
     glowMat.opacity = (0.75 + pulse * 0.25) * idleness;
     glow.visible = glowMat.opacity > 0.001;
-    screenMat.emissiveIntensity = 1 + pulse * 0.05 * idleness;
+    screenMat.color.setScalar(1 + pulse * 0.05 * idleness);
   }
 
   function render() {
