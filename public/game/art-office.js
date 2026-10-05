@@ -86,78 +86,43 @@
 
   // ---- Static layer ----------------------------------------------------------------------------
 
-  const WIN = [{ x: 18, y: 6, seed: 1 }, { x: 274, y: 6, seed: 2 }];
+  const WIN = [{ x: 16, y: 8 }, { x: 272, y: 8 }];
+  // 48x24 window on the 8px grid: 21px panes, 2px mullions, top = sky + clouds, bottom = skyline
   const panesOf = (x, y) => [
-    [x + 2, y + 2, 19, 8], [x + 23, y + 2, 19, 8], // top: sky + clouds
-    [x + 2, y + 12, 19, 9], [x + 23, y + 12, 19, 9], // bottom: skyline
+    [x + 2, y + 2, 21, 9], [x + 25, y + 2, 21, 9],
+    [x + 2, y + 13, 21, 9], [x + 25, y + 13, 21, 9],
   ];
 
   function paintWindowFrame(w) {
-    const { x, y, seed } = w;
-    R(x, y, 44, 23, K.O);
-    R(x + 1, y + 1, 42, 21, K.w);
-    const panes = panesOf(x, y);
-    panes.forEach((p, i) => {
+    const { x, y } = w;
+    box(x, y, 48, 24, K.w);
+    panesOf(x, y).forEach((p, i) => {
       if (i < 2) {
         R(p[0], p[1], p[2], p[3], K.s1);
-        // glint
-        P(p[0] + 2, p[1] + 1, K.w);
-        P(p[0] + 2, p[1] + 2, K.w);
-        P(p[0] + 3, p[1] + 1, K.w);
+        R(p[0] + 2, p[1] + 1, 1, 3, K.s2);
+        R(p[0] + 3, p[1] + 1, 2, 1, K.s2);
       } else {
         R(p[0], p[1], p[2], p[3], K.s2);
-        // skyline: dark blocks with a lit window or two
-        let bx = p[0];
+        let bx = p[0] + 1;
         let k = 0;
         while (bx < p[0] + p[2]) {
-          const bw = 4 + Math.floor(rnd(seed * 10 + k + i * 3) * 4);
-          const bh = 3 + Math.floor(rnd(seed * 20 + k + i * 5) * 4);
-          const top = p[1] + p[3] - bh;
-          clipR(bx, top, bw, bh, K.g2, p);
-          for (let wy = top + 1; wy < p[1] + p[3] - 2; wy += 2) {
-            for (let wx = bx + 1; wx < bx + bw - 1; wx += 2) {
-              if (rnd(wx * 7 + wy * 13 + seed) > 0.55) clipR(wx, wy, 1, 1, K.y, p);
-            }
-          }
+          const bw = 4 + Math.floor(rnd(w.x + k * 3 + i) * 4);
+          const bh = 3 + Math.floor(rnd(w.x * 2 + k * 5 + i) * 4);
+          clipR(bx, p[1] + p[3] - bh, bw, bh, K.g2, p);
           bx += bw + 1;
           k++;
         }
-        // hedge row
-        for (let tx = p[0]; tx < p[0] + p[2]; tx += 4) {
-          clipR(tx, p[1] + p[3] - 2, 4, 2, K.dg, p);
-          clipR(tx + 1, p[1] + p[3] - 3, 2, 1, K.dg, p);
-        }
       }
     });
-    // mullions
-    R(x + 21, y + 1, 1, 21, K.w);
-    R(x + 22, y + 1, 1, 21, K.g1);
-    R(x + 1, y + 10, 42, 1, K.w);
-    R(x + 1, y + 11, 42, 1, K.g1);
-    // sill
-    R(x - 2, y + 23, 48, 1, K.O);
-    R(x - 2, y + 24, 48, 1, K.w);
-    R(x - 2, y + 25, 48, 1, K.g1);
-    R(x - 2, y + 26, 48, 1, K.O);
-    // soft shadow on wall (solid) under the sill
-    R(x - 1, y + 27, 46, 1, K.td);
   }
 
   function paintStatic(ctx) {
     c = ctx;
 
-    // --- wall ---
+    // --- wall: calm cream, crown molding, teal wainscot with raised panels ---
     R(0, 0, ROOM_W, 48, K.wl);
     R(0, 0, ROOM_W, 1, K.O);
     R(0, 1, ROOM_W, 1, K.wd);
-    for (let tx = 0; tx < 21; tx++) {
-      const cx = tx * 16 + 8;
-      const cy = tx % 2 ? 20 : 12;
-      P(cx, cy - 1, K.wm);
-      R(cx - 1, cy, 3, 1, K.wm);
-      P(cx, cy + 1, K.wm);
-    }
-    // wainscot (teal) with raised panels
     R(0, 30, ROOM_W, 1, K.O);
     R(0, 31, ROOM_W, 1, K.tl);
     R(0, 32, ROOM_W, 14, K.tm);
@@ -171,27 +136,20 @@
     R(0, 46, ROOM_W, 1, K.td);
     R(0, 47, ROOM_W, 1, K.O);
 
-    // --- floor: staggered planks ---
+    // --- floor: big 16px tiles, light seams, one dot per corner ---
     R(0, 48, ROOM_W, ROOM_H - 48, K.fl);
     for (let ty = 3; ty < 12; ty++) {
       for (let tx = 0; tx < 21; tx++) {
         const px = tx * 16;
         const py = ty * 16;
-        for (let half = 0; half < 2; half++) {
-          const y = py + half * 8;
-          R(px, y + 7, 16, 1, K.fm);
-          R(px + (half ? 8 : 0), y, 1, 7, K.fm);
-          const gx = px + 2 + Math.floor(rnd(tx * 13 + ty * 5 + half) * 11);
-          const gy = y + 2 + Math.floor(rnd(tx * 3 + ty * 17 + half) * 4);
-          if (gx % 8 !== (half ? 0 : 0)) R(gx, gy, 2, 1, K.fm);
-          if (rnd(tx * 29 + ty * 7 + half * 3) > 0.7) P(px + 5 + (half ? 8 : 0), y + 4, K.fd);
-        }
+        R(px + 15, py, 1, 16, K.fm);
+        R(px, py + 15, 16, 1, K.fm);
+        P(px + 15, py + 15, K.fd);
       }
     }
     R(0, 48, ROOM_W, 2, K.fm); // wall shade on the floor
-    R(0, 50, ROOM_W, 1, K.fd === K.fm ? K.fm : K.fm);
 
-    // --- rug ---
+    // --- rug: calm cream field, red border, a few small motifs ---
     {
       const rx = 112;
       const ry = 80;
@@ -199,114 +157,93 @@
       const rh = 64;
       R(rx, ry, rw, rh, K.O);
       R(rx + 1, ry + 1, rw - 2, rh - 2, K.rr);
-      R(rx + 3, ry + 3, rw - 6, rh - 6, K.wl);
-      R(rx + 4, ry + 4, rw - 8, rh - 8, K.rd);
-      R(rx + 6, ry + 6, rw - 12, rh - 12, K.rr);
-      R(rx + 7, ry + 7, rw - 14, rh - 14, K.rd);
-      for (let ty = 0; ty < 3; ty++) {
-        for (let tx = 0; tx < 6; tx++) {
-          const cx = rx + 16 + tx * 16;
-          const cy = ry + 16 + ty * 16;
-          R(cx - 1, cy - 3, 2, 6, K.rr);
-          R(cx - 3, cy - 1, 6, 2, K.rr);
-          R(cx - 2, cy - 2, 4, 4, K.rr);
-          R(cx - 1, cy - 1, 2, 2, K.wl);
-        }
-      }
-      for (let y = ry + 4; y < ry + rh - 4; y += 4) {
-        R(rx - 2, y, 2, 1, K.wl);
-        R(rx + rw, y, 2, 1, K.wl);
-      }
+      R(rx + 4, ry + 4, rw - 8, rh - 8, K.wl);
+      R(rx + 5, ry + 5, rw - 10, rh - 10, K.wm);
+      [136, 168, 200].forEach((cx) => {
+        [100, 124].forEach((cy) => {
+          R(cx - 1, cy, 3, 1, K.rr);
+          R(cx, cy - 1, 1, 3, K.rr);
+        });
+      });
     }
 
     // --- wall decor ---
     // light switch + socket
     box(117, 17, 4, 6, K.w);
-    P(118, 19, K.g2);
-    P(119, 19, K.g2);
-    box(262, 36, 5, 4, K.w);
-    P(263, 38, K.O);
-    P(265, 38, K.O);
+    P(118, 19, K.O);
+    P(119, 19, K.O);
+    box(262, 18, 5, 5, K.w);
+    P(263, 20, K.O);
+    P(265, 20, K.O);
 
-    // whiteboard
+    // whiteboard: cols 8-12, rows 1-3 of wall (x128..207, y8..31)
     {
-      const x = 132;
-      const y = 6;
-      R(x + 1, y + 26, 72, 1, K.wd); // wall shadow
-      R(x + 72, y + 1, 1, 26, K.wd);
-      box(x, y, 72, 26, K.g1);
-      R(x + 2, y + 2, 68, 22, K.w);
-      text('Q3 ROADMAP', 136, 10, K.r);
-      text('1 AI', 136, 17, K.b);
-      text('2 MORE AI', 156, 17, K.b);
-      text('3 ???', 136, 24, K.b);
-      text('USERS', 160, 24, K.g2);
-      R(159, 26, 21, 1, K.r);
+      R(128, 8, 80, 24, K.O);
+      R(129, 9, 78, 22, K.w);
+      text('Q3 ROADMAP', 132, 11, K.r);
+      text('1 AI', 132, 17, K.b);
+      text('2 MORE AI', 152, 17, K.b);
+      text('3 ???', 132, 25, K.b);
+      text('USERS', 156, 25, K.g2);
+      R(155, 27, 21, 1, K.r);
       // sad face
-      P(185, 24, K.b);
-      P(188, 24, K.b);
-      R(185, 27, 4, 1, K.b);
-      P(184, 28, K.b);
-      P(189, 28, K.b);
-      // chart
-      R(184, 10, 1, 6, K.g);
-      R(184, 15, 15, 1, K.g);
-      R(186, 13, 2, 2, K.g);
-      R(189, 11, 2, 4, K.g);
-      R(192, 12, 2, 3, K.g);
-      R(195, 9, 2, 6, K.g);
-      // tray with markers
-      R(x + 1, y + 26, 70, 2, K.g2);
-      R(x, y + 26, 72, 1, K.O);
-      R(148, 32, 5, 1, K.r);
-      R(155, 32, 5, 1, K.b);
-      R(162, 32, 5, 1, K.g);
+      P(184, 25, K.b);
+      P(187, 25, K.b);
+      R(184, 28, 4, 1, K.b);
+      P(183, 29, K.b);
+      P(188, 29, K.b);
+      // chart going up
+      R(188, 11, 1, 5, K.g);
+      R(188, 15, 15, 1, K.g);
+      R(190, 13, 2, 2, K.g);
+      R(193, 11, 2, 4, K.g);
+      R(196, 12, 2, 3, K.g);
+      R(199, 10, 2, 5, K.g);
     }
 
-    // poster: TEAM WORK, with an AI sticker slapped over TEAM
+    // poster: TEAM WORK with an AI sticker slapped over TEAM (col 14, x224..239)
     {
-      const x = 224;
-      R(x + 1, 31, 18, 1, K.wd);
-      box(x, 8, 18, 23, K.b);
-      P(x + 9, 10, K.y);
-      R(x + 8, 11, 3, 1, K.y);
-      P(x + 9, 12, K.y);
-      text('TEAM', x + 1, 16, K.w);
-      text('WORK', x + 1, 23, K.w);
-      R(x + 2, 29, 14, 1, K.w);
-      R(x + 3, 14, 14, 8, K.y);
-      R(x + 3, 21, 14, 1, K.km);
-      text('AI', x + 6, 15, K.O);
-      P(x + 3, 14, K.O);
+      R(224, 8, 16, 24, K.b);
+      R(224, 8, 16, 1, K.O);
+      R(224, 31, 16, 1, K.O);
+      P(231, 10, K.y);
+      R(230, 11, 3, 1, K.y);
+      R(225, 13, 14, 9, K.y);
+      R(225, 22, 14, 1, K.O);
+      text('AI', 229, 15, K.O);
+      text('WORK', 224, 25, K.w);
     }
 
-    // Employee of the Month: the robot
+    // Employee of the Month: the robot (col 15)
     {
-      const x = 244;
-      R(x + 1, 28, 16, 1, K.wd);
-      box(x, 9, 16, 19, K.y);
-      R(x + 2, 11, 12, 11, K.wl);
-      box(x + 4, 13, 8, 6, K.g1);
-      R(x + 5, 15, 6, 2, K.O);
-      P(x + 6, 15, K.cy);
-      P(x + 9, 15, K.cy);
-      P(x + 7, 12, K.O);
-      R(x + 3, 20, 10, 2, K.g2);
-      R(x + 3, 23, 10, 3, K.km);
-      R(x + 4, 24, 8, 1, K.y);
-      R(x + 1, 27, 14, 1, K.km);
+      box(241, 10, 14, 20, K.y);
+      R(243, 12, 10, 16, K.wl);
+      R(245, 14, 6, 6, K.O);
+      R(246, 15, 4, 4, K.wl);
+      R(246, 16, 4, 1, K.O);
+      P(247, 17, K.cy);
+      P(249, 17, K.cy);
+      P(248, 13, K.O);
+      R(244, 21, 8, 1, K.O);
+      R(243, 22, 10, 1, K.O);
+      R(244, 24, 8, 3, K.O);
+      R(245, 25, 6, 1, K.y);
     }
 
     // windows
     WIN.forEach(paintWindowFrame);
+    WIN.forEach((w) => {
+      const x = w.x;
+      const y = w.y;
+      R(x + 23, y + 1, 2, 22, K.w);
+      R(x + 1, y + 11, 46, 2, K.w);
+    });
 
-    // room edges
-    R(0, 48, 2, ROOM_H - 48, K.O);
-    R(ROOM_W - 2, 48, 2, ROOM_H - 48, K.O);
-    R(2, 48, 1, ROOM_H - 48, K.fd);
-    R(ROOM_W - 3, 48, 1, ROOM_H - 48, K.fd);
-    R(0, 0, 1, 48, K.O);
-    R(ROOM_W - 1, 0, 1, 48, K.O);
+    // room edges: clear dark wall columns
+    R(0, 0, 2, ROOM_H, K.O);
+    R(2, 48, 2, ROOM_H - 48, K.g3);
+    R(ROOM_W - 2, 0, 2, ROOM_H, K.O);
+    R(ROOM_W - 4, 48, 2, ROOM_H - 48, K.g3);
   }
 
   // ---- Animated wall things ----------------------------------------------------------------
@@ -314,13 +251,13 @@
   const CLOCK = [
     '...ooooo...',
     '..owwwwwo..',
-    '.owwwgwwwo.',
+    '.owwwwwwwo.',
     'owwwwwwwwwo',
     'owwwwwwwwwo',
-    'owgwwwwwgwo',
     'owwwwwwwwwo',
     'owwwwwwwwwo',
-    '.owwwgwwwo.',
+    'owwwwwwwwwo',
+    '.owwwwwwwo.',
     '..owwwwwo..',
     '...ooooo...',
   ];
@@ -344,22 +281,22 @@
           paintCloud(cx, p[1] + 3 + i * 3, p);
         }
         // re-draw glint on top of clouds
-        P(p[0] + 2, p[1] + 1, K.s2);
+        R(p[0] + 2, p[1] + 1, 1, 3, K.s2);
+        R(p[0] + 3, p[1] + 1, 2, 1, K.s2);
       });
     });
 
     // wall clock, real time
     const cx = 72;
     const cy = 13;
-    R(cx - 4, 20, 9, 1, K.wd);
-    spr(cx - 5, cy - 5, CLOCK, { o: K.O, w: K.w, g: K.g2 });
+    spr(cx - 5, cy - 5, CLOCK, { o: K.O, w: K.w });
     const now = new Date();
     const m = now.getMinutes() + now.getSeconds() / 60;
     const hr = (now.getHours() % 12) + m / 60;
     const hand = (a, len, col) => {
       for (let r = 0; r <= len; r++) P(cx + Math.round(Math.sin(a) * r), cy - Math.round(Math.cos(a) * r), col);
     };
-    hand((hr / 12) * Math.PI * 2, 2, K.r);
+    hand((hr / 12) * Math.PI * 2, 2, K.O);
     hand((m / 60) * Math.PI * 2, 4, K.O);
     P(cx, cy, K.O);
   }
@@ -589,7 +526,7 @@
     const cx = 168;
     const gurgle = s && s.gurgle > 0;
     // base shadow on the rug
-    R(cx - 8, 111, 17, 1, K.rd);
+    R(cx - 8, 111, 17, 1, K.fd);
     // body
     box(cx - 7, 93, 14, 18, K.w);
     R(cx + 3, 94, 3, 16, K.g1);
@@ -638,44 +575,25 @@
     c = ctx;
     const x = 80;
     const y = 24;
-    const w = 32;
-    const h = 40;
-    box(x, y, w, h, K.km);
-    R(x + 1, y + 1, w - 2, 2, K.kl); // top face
-    R(x + 2, y + 3, w - 4, h - 7, K.O);
-    R(x + 3, y + 4, w - 6, h - 9, K.kd);
-    const colors = [K.r, K.y, K.b, K.g, K.p, K.w, K.cy];
-    [y + 4, y + 16, y + 28].forEach((sy, s) => {
-      let bx = x + 3;
+    R(x, y, 32, 40, K.O);
+    R(x + 1, y + 1, 30, 4, K.kl); // top face
+    R(x + 1, y + 5, 30, 31, K.kd);
+    const pairs = [[K.r, K.y], [K.b, K.cy], [K.g, K.p]];
+    [y + 15, y + 23, y + 31].forEach((pl, s) => {
+      // books stand on the plank at row pl (books occupy pl-7..pl-1)
+      let bx = x + 2;
       let k = 0;
-      while (bx < x + w - 5) {
+      while (bx < x + 29) {
         const bw = 2 + Math.floor(rnd(s * 17 + k) * 2);
-        const bh = 8 + Math.floor(rnd(s * 29 + k) * 3);
-        if (bx + bw > x + w - 3) break;
-        const col = colors[(s * 3 + k * 2 + Math.floor(rnd(s * 5 + k * 3) * 3)) % colors.length];
-        if (rnd(s * 41 + k) > 0.88) {
-          R(bx, sy + 11 - bw - 1, bh - 2, bw, K.O);
-          R(bx, sy + 11 - bw, bh - 2, bw - 1, col);
-          bx += bh - 1;
-        } else {
-          R(bx, sy + 11 - bh, bw, bh, K.O);
-          R(bx, sy + 11 - bh + 1, bw - 1, bh - 1, col);
-          bx += bw + 1;
-        }
+        const bh = 5 + Math.floor(rnd(s * 29 + k) * 3);
+        R(bx, pl - bh, bw, bh, pairs[s][k % 2]);
+        bx += bw + (k % 3 === 2 ? 2 : 1);
         k++;
       }
-      R(x + 2, sy + 11, w - 4, 1, K.O);
-      R(x + 3, sy + 12, w - 6, 1, K.kl);
+      R(x + 1, pl, 30, 1, K.O);
     });
-    R(x + 2, y + h - 4, w - 4, 3, K.km);
-    R(x + 3, y + h - 4, w - 6, 1, K.kl);
-    // little plant on top
-    box(x + 4, y - 4, 6, 5, K.km);
-    R(x + 5, y - 7, 4, 3, K.g);
-    P(x + 4, y - 6, K.lg);
-    P(x + 9, y - 6, K.lg);
-    P(x + 6, y - 8, K.lg);
-    R(x + 1, y + h, w - 2, 1, K.fm);
+    R(x + 1, y + 36, 30, 3, K.km);
+    R(x + 1, y + 36, 30, 1, K.O);
   }
 
   function drawFern(ctx, cx, base, t) {
@@ -800,8 +718,8 @@
     { y: 112, draw: drawCooler },
     { y: 192, draw: drawSofa },
     { y: 192, draw: drawPrinter },
-    { y: 192, draw: (ctx) => drawBush(ctx, 9, 190) },
-    { y: 192, draw: (ctx) => drawBush(ctx, ROOM_W - 9, 190) },
+    { y: 192, draw: (ctx) => drawBush(ctx, 11, 190) },
+    { y: 192, draw: (ctx) => drawBush(ctx, ROOM_W - 11, 190) },
   ];
 
   window.WC_OFFICE = {

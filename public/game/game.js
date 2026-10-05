@@ -26,6 +26,7 @@
   const TURN_DELAY = 0.09;
   // Text: 18 characters a line, two lines a box, like Gold and Silver.
   const LINE_CHARS = 18;
+  const LINE_W = LINE_CHARS * 8;
   const CHARS_PER_SEC = 45;
 
   const VOID = '#000000';
@@ -133,6 +134,12 @@
     if (ART.emotes[k]) emotes[k] = buildSprite(ART.emotes[k], ART.emotes.pal);
   }
   const marker = buildSprite(ART.marker.rows, ART.marker.pal);
+  // Twinkles for swapping characters: a big and a small star.
+  const STAR_PAL = ['#f8f8f8', '#f8d838', '#181818'];
+  const stars = [
+    ['...3....', '..323...', '.32123..', '3211123.', '.32123..', '..323...', '...3....', '........'],
+    ['........', '........', '...3....', '..313...', '...3....', '........', '........', '........'],
+  ].map((rows) => buildSprite(rows, STAR_PAL));
 
   // ---------------------------------------------------------------------------
   // Text: the Gold/Silver pixel font, snapped to its native 8x8 grid
@@ -172,11 +179,47 @@
     return out;
   }
 
+  // A copyright sign, which the font draws too small to read at 8px.
+  const COPYRIGHT = ['.####...', '#....#..', '#.##.#..', '#.#..#..', '#.##.#..', '#....#..', '.####...'];
+  glyphBits.set('©', Uint8Array.from({ length: 80 }, (_, i) => {
+    const r = Math.floor(i / 8) - 1;
+    return r >= 0 && r < 7 && COPYRIGHT[r][i % 8] === '#' ? 1 : 0;
+  }));
+
+  const bitsOf = (ch) => bitsFor(ch) || bitsFor('?');
+
+  // Text is spaced by each glyph's ink, one pixel apart, so narrow letters and
+  // punctuation sit snugly instead of floating in a full 8px cell.
+  const SPACE_W = 4;
+  const inkCache = new Map();
+  function ink(ch) {
+    let k = inkCache.get(ch);
+    if (k) return k;
+    const bits = bitsOf(ch);
+    let l = 8;
+    let r = -1;
+    for (let i = 0; i < bits.length; i++) {
+      if (!bits[i]) continue;
+      l = Math.min(l, i % 8);
+      r = Math.max(r, i % 8);
+    }
+    k = r < 0 ? { l: 0, w: SPACE_W } : { l, w: r - l + 2 };
+    inkCache.set(ch, k);
+    return k;
+  }
+
+  function measure(str) {
+    if (!fontReady) return str.length * 8;
+    let w = 0;
+    for (const ch of str) w += ch === ' ' ? SPACE_W : ink(ch).w;
+    return w;
+  }
+
   function glyph(ch, col) {
     const key = ch + col;
     let g = glyphCache.get(key);
     if (g) return g;
-    const bits = bitsFor(ch) || bitsFor('?');
+    const bits = bitsOf(ch);
     const [c, x] = makeCanvas(8, 10);
     x.fillStyle = col;
     for (let i = 0; i < bits.length; i++) if (bits[i]) x.fillRect(i % 8, Math.floor(i / 8), 1, 1);
@@ -185,12 +228,22 @@
   }
 
   // y is the top of the text row (a tile row); glyphs start one pixel above it.
+  // Returns the x just after the last glyph.
   function text(str, x, y, col = INK) {
-    if (!fontReady) return;
-    for (let i = 0; i < str.length; i++) {
-      if (str[i] !== ' ') ctx.drawImage(glyph(str[i], col), x + i * 8, y - 1);
+    if (!fontReady) return x;
+    for (const ch of str) {
+      if (ch === ' ') {
+        x += SPACE_W;
+        continue;
+      }
+      const k = ink(ch);
+      ctx.drawImage(glyph(ch, col), x - k.l, y - 1);
+      x += k.w;
     }
+    return x;
   }
+
+  const centred = (str, y, col) => text(str, Math.round((SCREEN_W - measure(str)) / 2), y, col);
 
   // Characters the font lacks are swapped for ones it has.
   function normalise(str) {
@@ -201,42 +254,40 @@
       .replace(/…/g, '...');
   }
 
-  // Greedy word wrap to 18 columns. Words longer than a line break after an
-  // underscore or hyphen where they can, otherwise mid-word.
-  function wrap(str, width = LINE_CHARS) {
+  // Greedy word wrap to the text box's width in pixels. Words too long for a
+  // line break after an underscore, hyphen or slash where they can.
+  function wrap(str, width = LINE_W) {
     const words = normalise(str).split(/\s+/).filter(Boolean);
     const lines = [];
     let line = '';
-    const pushWord = (w) => {
+    const fits = (s) => measure(s) <= width;
+    for (let w of words) {
+      while (!fits(w)) {
+        const lead = line ? line + ' ' : '';
+        let cut = 0;
+        let soft = 0;
+        for (let i = 1; i < w.length; i++) {
+          if (!fits(lead + w.slice(0, i))) break;
+          cut = i;
+          if ('_-/'.includes(w[i - 1])) soft = i;
+        }
+        if (soft) cut = soft;
+        if (cut < 3) {
+          if (line) lines.push(line);
+          line = '';
+          if (cut === 0 && !lead) cut = 1;
+          else continue;
+        }
+        lines.push(lead + w.slice(0, cut));
+        line = '';
+        w = w.slice(cut);
+      }
       if (!line) line = w;
-      else if (line.length + 1 + w.length <= width) line += ' ' + w;
+      else if (fits(line + ' ' + w)) line += ' ' + w;
       else {
         lines.push(line);
         line = w;
       }
-    };
-    for (let w of words) {
-      while (w.length > width) {
-        const room = line ? width - line.length - 1 : width;
-        let cut = -1;
-        for (let i = Math.min(w.length - 1, room) - 1; i > 0; i--) {
-          if ('_-/'.includes(w[i])) {
-            cut = i + 1;
-            break;
-          }
-        }
-        if (cut < 0 && room >= 6) cut = room;
-        if (cut < 0) {
-          if (line) lines.push(line);
-          line = '';
-          continue;
-        }
-        pushWord(w.slice(0, cut));
-        lines.push(line);
-        line = '';
-        w = w.slice(cut);
-      }
-      pushWord(w);
     }
     if (line) lines.push(line);
     return lines;
@@ -577,10 +628,11 @@
   function updateAI(dt) {
     if (state === 'dialogue' && dlg.partner === 'ai') return;
     if (ai.moving) {
-      ai.t += dt / 0.7;
-      const k = Math.min(1, ai.t);
-      ai.px = Math.round((ai.from[0] + (ai.to[0] - ai.from[0]) * k) * T);
-      ai.py = Math.round((ai.from[1] + (ai.to[1] - ai.from[1]) * k) * T);
+      // A pixel a frame, one tile per step, like everyone else.
+      ai.t += dt / (STEP_TIME * 1.5);
+      const k = Math.min(T, Math.floor(ai.t * T));
+      ai.px = ai.from[0] * T + (ai.to[0] - ai.from[0]) * k;
+      ai.py = ai.from[1] * T + (ai.to[1] - ai.from[1]) * k;
       if (ai.t >= 1) {
         ai.tx = ai.to[0];
         ai.ty = ai.to[1];
@@ -673,8 +725,10 @@
   // Dialogue: a Gold/Silver text box on rows 12-17, two lines of 18
   // ---------------------------------------------------------------------------
 
-  const BOX_ROW = 12;
-  const LINE_Y = [14 * TILE, 16 * TILE];
+  // When the player stands low on the screen the box moves to the top, as in
+  // the Oracle games, so it never hides who is talking.
+  let boxRow = 12;
+  const lineY = (k) => (boxRow + 2 + k * 2) * TILE;
 
   // rows: the wrapped lines of this entry. top: the first row on screen.
   // typing: which row is being typed (top or top + 1), n: characters shown.
@@ -683,6 +737,7 @@
   function openDialogue(lines, partner) {
     if (!lines || !lines.length) return;
     state = 'dialogue';
+    boxRow = player().py - SPRITE_LIFT - camera()[1] > 80 ? 0 : 12;
     dlg.lines = lines;
     dlg.i = 0;
     dlg.partner = partner;
@@ -784,30 +839,31 @@
     const shown = row.slice(0, count);
     // The speaker's tag, in their colour, on the first row only.
     if (i === 0 && dlg.tagLen) {
-      const tag = shown.slice(0, dlg.tagLen);
-      text(tag, TILE, y, ART.people[dlg.who] ? ART.people[dlg.who].pal[1] : ART.ai.pal[1]);
-      text(shown.slice(dlg.tagLen), TILE + dlg.tagLen * 8, y);
+      // The Assistant's cyan is too pale for text on white; use a deep teal.
+      const col = ART.people[dlg.who] ? ART.people[dlg.who].pal[1] : '#188898';
+      const after = text(shown.slice(0, dlg.tagLen), TILE, y, col);
+      text(shown.slice(dlg.tagLen), after, y);
     } else text(shown, TILE, y);
   }
 
   function drawDialogue() {
-    frameBox(0, BOX_ROW, 20, 6);
+    frameBox(0, boxRow, 20, 6);
     const count = (i) => (i < dlg.typing ? Infinity : i === dlg.typing ? Math.floor(dlg.n) : 0);
     if (dlg.scroll) {
       // Mid-scroll: the old second row sits halfway, the box is otherwise clear.
       const hop = dlg.scroll < 0.05 ? 8 : 16;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(TILE, LINE_Y[0] - 2, SCREEN_W - 2 * TILE, 28);
+      ctx.rect(TILE, lineY(0) - 2, SCREEN_W - 2 * TILE, 28);
       ctx.clip();
-      drawRow(dlg.top, LINE_Y[0] - hop, Infinity);
-      drawRow(dlg.top + 1, LINE_Y[1] - hop, Infinity);
+      drawRow(dlg.top, lineY(0) - hop, Infinity);
+      drawRow(dlg.top + 1, lineY(1) - hop, Infinity);
       ctx.restore();
       return;
     }
-    drawRow(dlg.top, LINE_Y[0], count(dlg.top));
-    drawRow(dlg.top + 1, LINE_Y[1], count(dlg.top + 1));
-    if (waiting()) downArrow(18 * TILE, 17 * TILE);
+    drawRow(dlg.top, lineY(0), count(dlg.top));
+    drawRow(dlg.top + 1, lineY(1), count(dlg.top + 1));
+    if (waiting()) downArrow(18 * TILE, (boxRow + 5) * TILE);
   }
 
   // ---------------------------------------------------------------------------
@@ -1189,6 +1245,34 @@
   pressable('start', startButton);
 
   // ---------------------------------------------------------------------------
+  // Layout
+  // ---------------------------------------------------------------------------
+
+  // Scale the 160x144 screen by a whole number of device pixels where it can, so
+  // every game pixel is the same size, and centre it in the LCD.
+  function fitScreen() {
+    const sw = el.stage.clientWidth;
+    const sh = el.stage.clientHeight;
+    if (!sw || !sh) return;
+    const dpr = window.devicePixelRatio || 1;
+    const fit = Math.min(sw / SCREEN_W, sh / SCREEN_H);
+    // Snap down to whole device pixels unless that would shrink it a lot.
+    const whole = Math.floor(fit * dpr) / dpr;
+    const scale = whole >= fit * 0.8 ? whole : fit;
+    const w = SCREEN_W * scale;
+    const h = SCREEN_H * scale;
+    Object.assign(el.canvas.style, {
+      position: 'absolute',
+      width: `${w}px`,
+      height: `${h}px`,
+      left: `${Math.round(((sw - w) / 2) * dpr) / dpr}px`,
+      top: `${Math.round(((sh - h) / 2) * dpr) / dpr}px`,
+    });
+  }
+  window.addEventListener('resize', fitScreen);
+  if ('ResizeObserver' in window) new ResizeObserver(fitScreen).observe(el.stage);
+
+  // ---------------------------------------------------------------------------
   // Loop
   // ---------------------------------------------------------------------------
 
@@ -1260,11 +1344,9 @@
 
     if (sparkle.t < 0.6) {
       const k = Math.floor(sparkle.t * 10) % 2;
-      const s = emotes.spark;
-      if (s) {
-        ctx.drawImage(s, sparkle.x - 10 + k * 4, sparkle.y - 6 - k * 2);
-        ctx.drawImage(s, sparkle.x + 10 - k * 4, sparkle.y - 2 + k * 2);
-      }
+      ctx.drawImage(stars[k], sparkle.x - 6, sparkle.y - 2);
+      ctx.drawImage(stars[1 - k], sparkle.x + 14, sparkle.y + 2);
+      ctx.drawImage(stars[k], sparkle.x + 6, sparkle.y - 10);
     }
 
     if (state === 'play') {
@@ -1298,6 +1380,13 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
+  // The camera keeps the player at metatile (4, 4) but never shows past the
+  // room's walls.
+  function camera() {
+    const me = player();
+    return [clamp(me.px - HERO_X, 0, ROOM_W - SCREEN_W), clamp(me.py - HERO_Y, 0, ROOM_H - SCREEN_H)];
+  }
+
   let logo = null;
   function drawTitle() {
     R(0, 0, SCREEN_W, SCREEN_H, PAPER);
@@ -1319,13 +1408,13 @@
     R(0, vy - 2, SCREEN_W, 2, INK);
     R(0, vy + vh, SCREEN_W, 2, INK);
 
-    text('THE', 68, 2, '#c03828');
+    centred('THE', 2, '#c03828');
     if (logo) {
       ctx.drawImage(logo.water, Math.round((SCREEN_W - logo.water.width) / 2), 10);
       ctx.drawImage(logo.cooler, Math.round((SCREEN_W - logo.cooler.width) / 2), 31);
     }
-    if (Math.floor(time * 1.6) % 2 === 0) text('PRESS START', 36, 124);
-    text('©2026 JIMTENDO', 24, 135, '#787878');
+    if (Math.floor(time * 1.6) % 2 === 0) centred('PRESS START', 124);
+    centred('©2026 JIMTENDO', 135, '#787878');
   }
 
   function render() {
@@ -1334,12 +1423,12 @@
       drawTitle();
     } else {
       R(0, 0, SCREEN_W, SCREEN_H, VOID);
-      const me = player();
-      drawWorld(me.px - HERO_X, me.py - HERO_Y);
+      const [cx, cy] = camera();
+      drawWorld(cx, cy);
       if (state === 'dialogue') drawDialogue();
       if (toastState.t > 0) {
         frameBox(0, 0, 20, 3);
-        text(toastState.msg, TILE, TILE);
+        centred(toastState.msg, TILE);
       }
     }
     finishFrame();
@@ -1391,9 +1480,14 @@
   setScreen(recall('watercooler:screen', 'colour') === 'green' ? 'green' : 'colour');
   document.body.classList.toggle('is-touch', touchUI);
   updateSwitcher();
+  fitScreen();
   requestAnimationFrame(rafLoop);
   setTimeout(startTimerLoopIfNeeded, 400);
 
   // For tests and tools: a read-only peek at the game and its text layout.
-  window.WC_GAME = { wrap, state: () => state, dlg, people, LINE_CHARS };
+  window.WC_GAME = {
+    wrap, measure, state: () => state, dlg, people, LINE_W,
+    say: (lines, partner = null) => state === 'play' && openDialogue(lines, partner),
+    talks: TALKS,
+  };
 })();
