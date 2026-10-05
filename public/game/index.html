@@ -67,42 +67,18 @@
               <main class="stage" id="stage">
                 <canvas
                   id="game"
-                  width="214"
-                  height="192"
+                  width="160"
+                  height="144"
                   role="img"
                   aria-label="A cosy pixel art office with a water cooler in the middle, where a designer, an engineer and a product manager are chatting."
                 ></canvas>
 
-                <div class="toast" id="toast" role="status" aria-live="polite"></div>
+                <p class="sr-only" id="dlgLive" aria-live="polite"></p>
 
-                <div class="dialogue" id="dialogue" hidden>
-                  <div class="dialogue__portrait"><canvas id="portrait" width="16" height="14"></canvas></div>
-                  <div class="dialogue__body">
-                    <span class="dialogue__name" id="dlgName"></span>
-                    <p class="dialogue__text" id="dlgText" aria-hidden="true"></p>
-                  </div>
-                  <span class="dialogue__next" aria-hidden="true"></span>
-                  <p class="sr-only" id="dlgLive" aria-live="polite"></p>
-                </div>
-
-                <div class="menu" id="menu" hidden>
-                  <p class="menu__title">Pause</p>
-                  <ul class="menu__list" id="menuList" role="menu"></ul>
-                </div>
-
+                <!-- The title screen is drawn on the canvas; this layer just takes the tap. -->
                 <div class="title" id="title">
-                  <div class="title__card">
-                    <p class="title__kicker">A very small office RPG</p>
-                    <h1 class="title__name">The Water Cooler</h1>
-                    <div class="title__cast" id="cast"></div>
-                    <p class="title__blurb">
-                      Everyone just got new AI tools. Everyone is sure they don't need anyone else anymore.
-                    </p>
-                    <button class="title__start" id="start" type="button">
-                      <span class="only-keys">Press Space to start</span>
-                      <span class="only-touch">Press A to start</span>
-                    </button>
-                  </div>
+                  <h1 class="sr-only">The Water Cooler</h1>
+                  <button class="sr-only" id="start" type="button">Start</button>
                 </div>
               </main>
             </div>
@@ -190,6 +166,9 @@
     </div>
 
     <script src="dialogue.js"></script>
+    <script src="art-sprites.js"></script>
+    <script src="art-office.js"></script>
+    <script src="sound.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

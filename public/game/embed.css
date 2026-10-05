@@ -2,7 +2,7 @@
    screen, so strip the handheld and the page chrome and let the LCD fill it. */
 
 .embed body {
-  background: #3d3240;
+  background: #000;
 }
 
 .embed .bar,
@@ -41,5 +41,5 @@
 }
 
 .embed .lcd {
-  background: #3d3240;
+  background: #000;
 }
