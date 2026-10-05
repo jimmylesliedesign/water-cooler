@@ -2,7 +2,7 @@
 
 A tiny, cosy pixel art office RPG. Three colleagues (the Designer, the Engineer and the Product Manager) are each convinced their new AI tools mean they don't need the other two anymore. Their own stories suggest otherwise.
 
-The game itself is plain HTML, CSS and JavaScript with no dependencies (aside from the Pixelify Sans web font). The landing page wraps it in a 3D Game Boy Color built with three.js and Vite: the idle device shows the game's live start screen, and pressing Space zooms in and hands over to the real game, framed exactly over the model's screen.
+The game itself is plain HTML, CSS and JavaScript with no dependencies (aside from the Pixelify Sans web font for the page around it). Text on the game screen is set in [pokemon-font](https://github.com/cooljeanius/pokemon-font), a Game Boy-style pixel font self-hosted in `public/game/fonts/` under the SIL Open Font License. The landing page wraps it in a 3D Game Boy Color built with three.js and Vite: the idle device shows the game's live start screen, and pressing Space zooms in and hands over to the real game, framed exactly over the model's screen.
 
 ## Files
 
@@ -16,8 +16,9 @@ The game itself is plain HTML, CSS and JavaScript with no dependencies (aside fr
   - `dialogue.js` – **all of the writing**. Edit this to change or add conversations.
   - `style.css` – the original 2D handheld, still used as the no-WebGL fallback
 - `public/models/gameboy.glb` – the model the page loads, built by `npm run build-model` from the original `game_boy_color.glb`
-  - `model-src/patches/` – texture patches it pastes in: JIM BOY on the lens and Jimtendo on the shell's badge (colour and normal map)
+  - `model-src/patches/` – texture patches it pastes in: JIM BOY on the lens, and plain plastic over the shell's original badge (colour and normal map)
   - `scripts/build-model.mjs` – applies the patches and optimises the model
+- `public/models/jimtendo-badge.png` – the Jimtendo badge under the screen. The shell texture is too coarse for a sharp badge, so the patches blank its original one and `src/scene.js` lays this image over the same spot. It is drawn by `model-src/jimtendo-badge/`, lettered in the style of the Nintendo wordmark.
 
 ## Run locally
 

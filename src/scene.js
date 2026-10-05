@@ -4,6 +4,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/gameboy.glb`;
+const BADGE_URL = `${import.meta.env.BASE_URL}models/jimtendo-badge.png`;
 const FOV = 30;
 const DEG = Math.PI / 180;
 const ZOOM_MS = 900;
@@ -13,9 +14,23 @@ const ZOOM_MS = 900;
 // of its own triangles, the lens is one texture with a half-transparent window.
 const LCD_UV = { u0: 0.54, u1: 0.91, v0: 0.015, v1: 0.42 };
 const LENS_WINDOW_UV = { u0: 0.06, u1: 0.42, v0: 0.09, v1: 0.49 };
+// The badge under the screen, in the Case texture (glTF UVs). The texture is
+// too coarse for it (53 x 14 pixels), so the build blanks it out and a sharp
+// Jimtendo badge is laid over the same spot instead.
+const BADGE_UV = { u0: 74 / 1024, u1: 127 / 1024, v0: 177 / 1024, v1: 191 / 1024 };
 // How much of the lens window's dark tint shows over the screen while idle. It
 // fades to nothing as the camera arrives so the texture matches the live game.
 const LENS_IDLE = 0.35;
+
+// Lighting and the shell's colour, all in one place for tuning.
+const LOOK = {
+  exposure: 0.85, // overall brightness after tone mapping
+  environment: 0.5, // soft light from the surrounding "room"
+  keyLight: 1.1, // the directional light from upper right
+  // Multiplies the shell's (Case) texture colour, as linear RGB: below 1 darkens.
+  // This takes the model's pale teal most of the way to a real Teal Game Boy Color.
+  caseTint: [0.66, 0.75, 0.93],
+};
 
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const damp = (from, to, rate, dt) => THREE.MathUtils.lerp(from, to, 1 - Math.exp(-rate * dt));
@@ -72,6 +87,50 @@ function findLcd(mesh, space) {
   return { box, tris, front };
 }
 
+// Maps a point in the Case texture to `space`'s local coordinates, through
+// whichever Case triangle covers it. Null if none does.
+function uvToLocal(meshes, u, v, space) {
+  // Triangle.getBarycoord works on Vector3s, so the UVs ride along with z = 0.
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const p = new THREE.Vector3(u, v, 0);
+  const t = new THREE.Vector2();
+  const bary = new THREE.Vector3();
+  for (const mesh of meshes) {
+    const geo = mesh.geometry;
+    const pos = geo.attributes.position;
+    const uv = geo.attributes.uv;
+    if (!pos || !uv) continue;
+    const index = geo.index;
+    const count = index ? index.count : pos.count;
+    const vi = (i) => (index ? index.getX(i) : i);
+    // The optimised model stores UVs quantised, with a texture transform that
+    // maps them back; apply it so they compare with texture coordinates.
+    const map = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material).map;
+    const uvMatrix = new THREE.Matrix3();
+    if (map) {
+      map.updateMatrix();
+      uvMatrix.copy(map.matrix);
+    }
+    for (let i = 0; i < count; i += 3) {
+      [a, b, c].forEach((q, k) => {
+        t.fromBufferAttribute(uv, vi(i + k)).applyMatrix3(uvMatrix);
+        q.set(t.x, t.y, 0);
+      });
+      if (!THREE.Triangle.getBarycoord(p, a, b, c, bary)) continue;
+      // Written as >= so a degenerate triangle's NaN weights are skipped too.
+      if (!(bary.x >= -1e-6 && bary.y >= -1e-6 && bary.z >= -1e-6)) continue;
+      const out = new THREE.Vector3();
+      const corner = new THREE.Vector3();
+      [bary.x, bary.y, bary.z].forEach((w, k) => out.addScaledVector(corner.fromBufferAttribute(pos, vi(i + k)), w));
+      const toSpace = new THREE.Matrix4().copy(space.matrixWorld).invert().multiply(mesh.matrixWorld);
+      return out.applyMatrix4(toSpace);
+    }
+  }
+  return null;
+}
+
 // Lets the lens window's alpha be faded by a uniform, leaving the rest of the lens alone.
 function patchLens(material, uniform) {
   material.onBeforeCompile = (shader) => {
@@ -107,7 +166,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1;
+  renderer.toneMappingExposure = LOOK.exposure;
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -115,7 +174,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   const room = new RoomEnvironment();
   const envTarget = pmrem.fromScene(room, 0.04);
   scene.environment = envTarget.texture;
-  scene.environmentIntensity = 0.7;
+  scene.environmentIntensity = LOOK.environment;
   room.traverse((o) => {
     if (o.isMesh) {
       o.geometry.dispose();
@@ -123,7 +182,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     }
   });
 
-  const key = new THREE.DirectionalLight(0xfff4e6, 1.4);
+  const key = new THREE.DirectionalLight(0xfff4e6, LOOK.keyLight);
   key.position.set(2.5, 3.5, 5);
   scene.add(key);
 
@@ -150,6 +209,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     names.push({ mesh: o.name, parent: o.parent && o.parent.name, materials: mats.map((m) => m.name) });
     if (mats.some((m) => m.name === 'Glass')) glass = o;
+    for (const m of mats) if (m.name === 'Case') m.color.setRGB(...LOOK.caseTint);
   });
   console.info('[gameboy] meshes and materials', JSON.stringify(names));
   // GLTFLoader only logs a texture it couldn't load, and the device would
@@ -210,6 +270,50 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   screenMesh.position.set(screenCentre.x, screenCentre.y, screenZ);
   device.add(screenMesh);
 
+  // ---- Badge ----------------------------------------------------------------
+
+  // A sharp Jimtendo badge over the spot the texture's own badge was blanked
+  // from. The artwork is only the emboss's light and shadow, so the shell's
+  // colour shows through. Its corners come from the texture, and its own UVs
+  // are projected on the front face so it reads the right way round.
+  const caseMeshes = [];
+  model.traverse((o) => {
+    if (o.isMesh && (Array.isArray(o.material) ? o.material : [o.material]).some((m) => m.name === 'Case')) caseMeshes.push(o);
+  });
+  const badgeCorners = [
+    [BADGE_UV.u0, BADGE_UV.v0],
+    [BADGE_UV.u1, BADGE_UV.v0],
+    [BADGE_UV.u1, BADGE_UV.v1],
+    [BADGE_UV.u0, BADGE_UV.v1],
+  ].map(([u, v]) => uvToLocal(caseMeshes, u, v, device));
+  if (badgeCorners.every(Boolean)) {
+    const badgeBox = new THREE.Box3().setFromPoints(badgeCorners);
+    const badgeTex = await new THREE.TextureLoader().loadAsync(BADGE_URL).catch(() => null);
+    if (badgeTex) {
+      badgeTex.colorSpace = THREE.SRGBColorSpace;
+      badgeTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const geo = new THREE.BufferGeometry();
+      const lift = size.z * 0.0005;
+      const w = badgeBox.max.x - badgeBox.min.x;
+      const h = badgeBox.max.y - badgeBox.min.y;
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(badgeCorners.flatMap((p) => [p.x, p.y, p.z + lift]), 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(badgeCorners.flatMap((p) => [(p.x - badgeBox.min.x) / w, (p.y - badgeBox.min.y) / h]), 2));
+      geo.setIndex([0, 1, 2, 0, 2, 3]);
+      const badge = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({
+          map: badgeTex,
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+        }),
+      );
+      badge.name = 'Badge';
+      device.add(badge);
+    }
+  }
+
   // Soft additive glow from the screen. It sits just behind the device so the
   // shell occludes it and only the halo around the silhouette shows; in front,
   // additive light over the glossy lens reads as a milky haze.
@@ -234,8 +338,8 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
 
   // Soft contact shadow on the "floor" under the device.
   const shadowTex = radialTexture([
-    [0, 'rgba(0,0,0,0.55)'],
-    [0.5, 'rgba(0,0,0,0.25)'],
+    [0, 'rgba(0,0,0,0.32)'],
+    [0.5, 'rgba(0,0,0,0.14)'],
     [1, 'rgba(0,0,0,0)'],
   ]);
   const shadow = new THREE.Mesh(
