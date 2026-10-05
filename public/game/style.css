@@ -689,6 +689,10 @@ body {
   image-rendering: pixelated;
 }
 
+.dots {
+  pointer-events: none;
+}
+
 .title {
   position: absolute;
   inset: 0;

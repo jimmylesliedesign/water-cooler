@@ -1250,6 +1250,28 @@
 
   // Scale the 160x144 screen by a whole number of device pixels where it can, so
   // every game pixel is the same size, and centre it in the LCD.
+  // The GBC's LCD shows a fine grid between its pixels. It is drawn over the
+  // game on its own canvas at device resolution, each line on the device pixel
+  // where a game pixel starts, and left off when pixels are too small to see it.
+  const dots = document.createElement('canvas');
+  dots.className = 'dots';
+  dots.setAttribute('aria-hidden', 'true');
+  el.canvas.after(dots);
+
+  function drawDots(w, h, dpr) {
+    const k = (w * dpr) / SCREEN_W;
+    dots.hidden = k < 3;
+    if (dots.hidden) return;
+    dots.width = Math.round(w * dpr);
+    dots.height = Math.round(h * dpr);
+    const d = dots.getContext('2d');
+    d.clearRect(0, 0, dots.width, dots.height);
+    const line = Math.max(1, Math.round(k * 0.12));
+    d.fillStyle = 'rgba(16, 24, 16, 0.17)';
+    for (let i = 0; i < SCREEN_W; i++) d.fillRect(Math.round(i * k), 0, line, dots.height);
+    for (let j = 0; j < SCREEN_H; j++) d.fillRect(0, Math.round(j * k), dots.width, line);
+  }
+
   function fitScreen() {
     const sw = el.stage.clientWidth;
     const sh = el.stage.clientHeight;
@@ -1263,13 +1285,16 @@
     const scale = !embedded && whole >= fit * 0.8 ? whole : fit;
     const w = SCREEN_W * scale;
     const h = SCREEN_H * scale;
-    Object.assign(el.canvas.style, {
+    const rect = {
       position: 'absolute',
       width: `${w}px`,
       height: `${h}px`,
       left: `${Math.round(((sw - w) / 2) * dpr) / dpr}px`,
       top: `${Math.round(((sh - h) / 2) * dpr) / dpr}px`,
-    });
+    };
+    Object.assign(el.canvas.style, rect);
+    Object.assign(dots.style, rect);
+    drawDots(w, h, dpr);
   }
   window.addEventListener('resize', fitScreen);
   if ('ResizeObserver' in window) new ResizeObserver(fitScreen).observe(el.stage);

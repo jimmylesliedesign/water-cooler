@@ -336,6 +336,27 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   glow.position.set(screenCentre.x, screenCentre.y, local.min.z - size.z * 0.2);
   device.add(glow);
 
+  // The power LED, printed on the lens left of the screen, gets a soft red
+  // glow of its own. Its spot is measured off the lens art, relative to the
+  // screen, and the glow sits just in front of the glass.
+  const LED = { x: -0.644, y: 0.19 };
+  const ledMat = new THREE.SpriteMaterial({
+    map: radialTexture([
+      [0, 'rgba(255,90,70,0.55)'],
+      [0.25, 'rgba(255,60,40,0.22)'],
+      [0.6, 'rgba(255,40,30,0.06)'],
+      [1, 'rgba(255,40,30,0)'],
+    ]),
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+    toneMapped: false,
+  });
+  const led = new THREE.Sprite(ledMat);
+  led.scale.set(screenSize.x * 0.16, screenSize.x * 0.16, 1);
+  led.position.set(screenCentre.x + LED.x * screenSize.x, screenCentre.y + LED.y * screenSize.y, lcd.front + size.z * 0.004);
+  device.add(led);
+
   // Soft contact shadow on the "floor" under the device.
   const shadowTex = radialTexture([
     [0, 'rgba(0,0,0,0.32)'],
@@ -507,6 +528,8 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     glowMat.opacity = (0.75 + pulse * 0.25) * idleness;
     glow.visible = glowMat.opacity > 0.001;
     screenMat.color.setScalar(1 + pulse * 0.05 * idleness);
+    // The LED breathes very slightly, like light bleeding through the lens.
+    ledMat.opacity = still ? 0.9 : 0.8 + Math.sin(time * 0.9) * 0.12;
   }
 
   function render() {
