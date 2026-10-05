@@ -722,13 +722,17 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Dialogue: a Gold/Silver text box on rows 12-17, two lines of 18
+  // Dialogue: a Gold/Silver-style text box on the bottom five rows, two lines
   // ---------------------------------------------------------------------------
 
   // When the player stands low on the screen the box moves to the top, as in
   // the Oracle games, so it never hides who is talking.
-  let boxRow = 12;
-  const lineY = (k) => (boxRow + 2 + k * 2) * TILE;
+  // Five tiles tall: a border row, two lines of text a tile apart, and a border
+  // row, so the text sits evenly between the frame's lines.
+  const BOX_ROWS = 5;
+  const LOW_ROW = SCREEN_H / TILE - BOX_ROWS;
+  let boxRow = LOW_ROW;
+  const lineY = (k) => (boxRow + 1 + k * 2) * TILE;
 
   // rows: the wrapped lines of this entry. top: the first row on screen.
   // typing: which row is being typed (top or top + 1), n: characters shown.
@@ -737,7 +741,7 @@
   function openDialogue(lines, partner) {
     if (!lines || !lines.length) return;
     state = 'dialogue';
-    boxRow = player().py - SPRITE_LIFT - camera()[1] > 80 ? 0 : 12;
+    boxRow = player().py - SPRITE_LIFT - camera()[1] > 80 ? 0 : LOW_ROW;
     dlg.lines = lines;
     dlg.i = 0;
     dlg.partner = partner;
@@ -847,7 +851,7 @@
   }
 
   function drawDialogue() {
-    frameBox(0, boxRow, 20, 6);
+    frameBox(0, boxRow, 20, BOX_ROWS);
     const count = (i) => (i < dlg.typing ? Infinity : i === dlg.typing ? Math.floor(dlg.n) : 0);
     if (dlg.scroll) {
       // Mid-scroll: the old second row sits halfway, the box is otherwise clear.
@@ -863,7 +867,7 @@
     }
     drawRow(dlg.top, lineY(0), count(dlg.top));
     drawRow(dlg.top + 1, lineY(1), count(dlg.top + 1));
-    if (waiting()) downArrow(18 * TILE, (boxRow + 5) * TILE);
+    if (waiting()) downArrow(18 * TILE, (boxRow + BOX_ROWS - 1) * TILE);
   }
 
   // ---------------------------------------------------------------------------
