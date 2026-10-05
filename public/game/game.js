@@ -180,7 +180,7 @@
   }
 
   // A copyright sign, which the font draws too small to read at 8px.
-  const COPYRIGHT = ['.####...', '#....#..', '#.##.#..', '#.#..#..', '#.##.#..', '#....#..', '.####...'];
+  const COPYRIGHT = ['..###...', '.#...#..', '#.###.#.', '#.#...#.', '#.###.#.', '.#...#..', '..###...'];
   glyphBits.set('©', Uint8Array.from({ length: 80 }, (_, i) => {
     const r = Math.floor(i / 8) - 1;
     return r >= 0 && r < 7 && COPYRIGHT[r][i % 8] === '#' ? 1 : 0;
@@ -1256,9 +1256,11 @@
     if (!sw || !sh) return;
     const dpr = window.devicePixelRatio || 1;
     const fit = Math.min(sw / SCREEN_W, sh / SCREEN_H);
-    // Snap down to whole device pixels unless that would shrink it a lot.
+    // Snap down to whole device pixels unless that would shrink it a lot. In
+    // the 3D page the frame is sized to the model's screen, so fill it.
     const whole = Math.floor(fit * dpr) / dpr;
-    const scale = whole >= fit * 0.8 ? whole : fit;
+    const embedded = document.documentElement.classList.contains('embed');
+    const scale = !embedded && whole >= fit * 0.8 ? whole : fit;
     const w = SCREEN_W * scale;
     const h = SCREEN_H * scale;
     Object.assign(el.canvas.style, {
