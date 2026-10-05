@@ -6,7 +6,7 @@
   --cream: #f3e9d2;
   --muted: #6e6474;
   --honey: #f2c46d;
-  --font: 'Pixelify Sans', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --fade: 0.15s;
 }
 
