@@ -17,6 +17,16 @@ const LENS_WINDOW_UV = { u0: 0.06, u1: 0.42, v0: 0.09, v1: 0.49 };
 // fades to nothing as the camera arrives so the texture matches the live game.
 const LENS_IDLE = 0.35;
 
+// Lighting and the shell's colour, all in one place for tuning.
+const LOOK = {
+  exposure: 0.7, // overall brightness after tone mapping
+  environment: 0.3, // soft light from the surrounding "room"
+  keyLight: 0.8, // the directional light from upper right
+  // Multiplies the shell's (Case) texture colour, as linear RGB: below 1 darkens.
+  // This takes the model's light teal to the real Teal Game Boy Color.
+  caseTint: [0.45, 0.6, 0.9],
+};
+
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const damp = (from, to, rate, dt) => THREE.MathUtils.lerp(from, to, 1 - Math.exp(-rate * dt));
 
@@ -107,7 +117,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1;
+  renderer.toneMappingExposure = LOOK.exposure;
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -115,7 +125,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
   const room = new RoomEnvironment();
   const envTarget = pmrem.fromScene(room, 0.04);
   scene.environment = envTarget.texture;
-  scene.environmentIntensity = 0.7;
+  scene.environmentIntensity = LOOK.environment;
   room.traverse((o) => {
     if (o.isMesh) {
       o.geometry.dispose();
@@ -123,7 +133,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     }
   });
 
-  const key = new THREE.DirectionalLight(0xfff4e6, 1.4);
+  const key = new THREE.DirectionalLight(0xfff4e6, LOOK.keyLight);
   key.position.set(2.5, 3.5, 5);
   scene.add(key);
 
@@ -150,6 +160,7 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     names.push({ mesh: o.name, parent: o.parent && o.parent.name, materials: mats.map((m) => m.name) });
     if (mats.some((m) => m.name === 'Glass')) glass = o;
+    for (const m of mats) if (m.name === 'Case') m.color.setRGB(...LOOK.caseTint);
   });
   console.info('[gameboy] meshes and materials', JSON.stringify(names));
   // GLTFLoader only logs a texture it couldn't load, and the device would
