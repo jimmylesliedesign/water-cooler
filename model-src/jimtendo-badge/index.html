@@ -1,0 +1,62 @@
+<!doctype html><meta charset="utf-8">
+<title>Jimtendo badge</title>
+<!--
+  Draws public/models/jimtendo-badge.png: the embossed badge laid over the
+  shell under the screen (see src/scene.js). Open this page and run, in the
+  console:
+
+    draw(OPTIONS).then((url) => { const a = document.createElement('a'); a.href = url; a.download = 'jimtendo-badge.png'; a.click(); })
+
+  with OPTIONS as below. The lettering is drawn by glyphs.js.
+-->
+<script>
+const OPTIONS = { text: 'Jimtendo', capShare: 0.46, widthShare: 0.78, rim: 34, depth: 6, light: 'rgba(255,255,255,0.55)', shadow: 'rgba(0,40,45,0.45)', face: 0 };
+</script>
+<canvas id=c></canvas>
+<script src=glyphs.js></script>
+<script>
+// Width:height matches the original badge (53 x 14 texture pixels), at 20x.
+const W = 1060, H = 280;
+// Returns the badge as a PNG data URL.
+async function draw(opts) {
+  const c = document.getElementById('c'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  // Height map: the raised racetrack rim and letters.
+  const h = document.createElement('canvas'); h.width = W; h.height = H;
+  const g = h.getContext('2d');
+  const lw = opts.rim, r = (H - lw) / 2 - 6;
+  g.strokeStyle = '#fff'; g.lineWidth = lw;
+  g.beginPath(); g.roundRect(lw / 2 + 6, lw / 2 + 6, W - lw - 12, H - lw - 12, r); g.stroke();
+  g.fillStyle = '#fff';
+  // Size the lettering like the Nintendo badge: caps about 46% of the badge's
+  // height, and no wider than 78% of the inside of the rim.
+  const probe = document.createElement('canvas').getContext('2d');
+  const advance = setWord(probe, opts.text);
+  const k = Math.min((opts.capShare * H) / M.cap, (opts.widthShare * (W - 2 * (lw + 6))) / advance);
+  g.save();
+  g.translate(W / 2 - (advance * k) / 2, H / 2 + (M.cap * k) / 2);
+  g.scale(k, k);
+  // Glyph cuts must only remove lettering, not the rim, so set the word on its own layer.
+  const t = document.createElement('canvas'); t.width = W; t.height = H;
+  const tg = t.getContext('2d'); tg.setTransform(g.getTransform()); tg.fillStyle = '#fff';
+  setWord(tg, opts.text);
+  g.restore();
+  g.drawImage(t, 0, 0);
+  // Emboss: light on the upper edges, shadow on the lower edges, nothing on the flat tops.
+  const d = opts.depth;
+  const layer = (col, dy) => {
+    const l = document.createElement('canvas'); l.width = W; l.height = H;
+    const lx = l.getContext('2d');
+    lx.drawImage(h, 0, 0);
+    lx.globalCompositeOperation = 'source-in'; lx.fillStyle = col; lx.fillRect(0, 0, W, H);
+    lx.globalCompositeOperation = 'destination-out'; lx.drawImage(h, 0, -dy);
+    return l;
+  };
+  x.clearRect(0, 0, W, H);
+  x.drawImage(layer(opts.shadow, d), 0, d);   // below each raised edge
+  x.drawImage(layer(opts.light, -d), 0, -d);  // above each raised edge
+  // A faint tint on the raised faces, so the shapes read at a distance.
+  x.globalAlpha = opts.face; x.drawImage(h, 0, 0); x.globalAlpha = 1;
+  return c.toDataURL('image/png');
+}
+</script>

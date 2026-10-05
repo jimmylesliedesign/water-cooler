@@ -18,7 +18,7 @@ The game itself is plain HTML, CSS and JavaScript with no dependencies (aside fr
 - `public/models/gameboy.glb` – the model the page loads, built by `npm run build-model` from the original `game_boy_color.glb`
   - `model-src/patches/` – texture patches it pastes in: JIM BOY on the lens, and plain plastic over the shell's original badge (colour and normal map)
   - `scripts/build-model.mjs` – applies the patches and optimises the model
-- `public/models/jimtendo-badge.png` – the Jimtendo badge under the screen. The shell texture is too coarse for a sharp badge, so the patches blank its original one and `src/scene.js` lays this image over the same spot.
+- `public/models/jimtendo-badge.png` – the Jimtendo badge under the screen. The shell texture is too coarse for a sharp badge, so the patches blank its original one and `src/scene.js` lays this image over the same spot. It is drawn by `model-src/jimtendo-badge/`, lettered in the style of the Nintendo wordmark.
 
 ## Run locally
 
