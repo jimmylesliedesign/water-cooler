@@ -263,7 +263,19 @@ async function boot() {
   if (!hasWebGL()) return fallback(new Error('WebGL is not available'));
   try {
     const { createScene } = await import('./scene.js');
-    if (document.fonts) await document.fonts.load('600 16px "Pixelify Sans"').catch(() => {});
+    if (document.fonts) {
+      // The idle screen is painted here, not in the game's frame, so this
+      // document needs the game's screen font too (same file, same relative URL).
+      const screenFont = new FontFace(
+        'pokemon-font',
+        "url('game/fonts/pokemon-font.woff2') format('woff2'), url('game/fonts/pokemon-font.woff') format('woff')",
+      );
+      document.fonts.add(screenFont);
+      await Promise.all([
+        document.fonts.load('600 16px "Pixelify Sans"'),
+        screenFont.load(),
+      ]).catch(() => {});
+    }
     scene = await createScene({
       container: gl,
       screen: painter.canvas,

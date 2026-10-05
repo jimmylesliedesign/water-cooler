@@ -234,8 +234,8 @@ export async function createScene({ container, screen, beforeRender, onLayout, h
 
   // Soft contact shadow on the "floor" under the device.
   const shadowTex = radialTexture([
-    [0, 'rgba(0,0,0,0.55)'],
-    [0.5, 'rgba(0,0,0,0.25)'],
+    [0, 'rgba(0,0,0,0.32)'],
+    [0.5, 'rgba(0,0,0,0.14)'],
     [1, 'rgba(0,0,0,0)'],
   ]);
   const shadow = new THREE.Mesh(

@@ -2,7 +2,7 @@
 
 A tiny, cosy pixel art office RPG. Three colleagues (the Designer, the Engineer and the Product Manager) are each convinced their new AI tools mean they don't need the other two anymore. Their own stories suggest otherwise.
 
-The game itself is plain HTML, CSS and JavaScript with no dependencies (aside from the Pixelify Sans web font). The landing page wraps it in a 3D Game Boy Color built with three.js and Vite: the idle device shows the game's live start screen, and pressing Space zooms in and hands over to the real game, framed exactly over the model's screen.
+The game itself is plain HTML, CSS and JavaScript with no dependencies (aside from the Pixelify Sans web font for the page around it). Text on the game screen is set in [pokemon-font](https://github.com/cooljeanius/pokemon-font), a Game Boy-style pixel font self-hosted in `public/game/fonts/` under the SIL Open Font License. The landing page wraps it in a 3D Game Boy Color built with three.js and Vite: the idle device shows the game's live start screen, and pressing Space zooms in and hands over to the real game, framed exactly over the model's screen.
 
 ## Files
 
