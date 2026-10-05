@@ -1,6 +1,6 @@
 /* Palette and type from the game's own stylesheet (public/game/style.css). */
 :root {
-  --bg: #d9d9d9;
+  --bg: #ffffff;
   --ink: #2b2230;
   --paper: #fdf6e3;
   --cream: #f3e9d2;
@@ -21,7 +21,7 @@ body {
 }
 
 body {
-  background: radial-gradient(120% 80% at 50% 0%, #eeeeee 0%, var(--bg) 62%);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
   overflow: hidden;
@@ -68,7 +68,7 @@ body {
   position: absolute;
   inset: 0 0 -24px;
   z-index: -1;
-  background: linear-gradient(rgba(217, 217, 217, 0.9) 40%, rgba(217, 217, 217, 0));
+  background: linear-gradient(rgba(255, 255, 255, 0.9) 40%, rgba(255, 255, 255, 0));
   opacity: 0;
   transition: opacity 0.4s ease;
 }
@@ -315,7 +315,7 @@ body.is-touch .only-keys {
   height: calc(164px + env(safe-area-inset-bottom));
   padding: 10px 16px calc(34px + env(safe-area-inset-bottom));
   background: var(--bg);
-  border-top: 1px solid #c4c4c4;
+  border-top: 1px solid #e2e2e2;
   box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.12);
   touch-action: none;
 }

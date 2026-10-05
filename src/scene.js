@@ -19,12 +19,12 @@ const LENS_IDLE = 0.35;
 
 // Lighting and the shell's colour, all in one place for tuning.
 const LOOK = {
-  exposure: 0.7, // overall brightness after tone mapping
-  environment: 0.3, // soft light from the surrounding "room"
-  keyLight: 0.8, // the directional light from upper right
+  exposure: 0.85, // overall brightness after tone mapping
+  environment: 0.5, // soft light from the surrounding "room"
+  keyLight: 1.1, // the directional light from upper right
   // Multiplies the shell's (Case) texture colour, as linear RGB: below 1 darkens.
-  // This takes the model's light teal to the real Teal Game Boy Color.
-  caseTint: [0.45, 0.6, 0.9],
+  // This takes the model's pale teal most of the way to a real Teal Game Boy Color.
+  caseTint: [0.66, 0.75, 0.93],
 };
 
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);

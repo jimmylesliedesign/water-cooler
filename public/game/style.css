@@ -9,7 +9,7 @@
 }
 
 :root {
-  --bg: #d9d9d9;
+  --bg: #ffffff;
   --ink: #2b2230;
   --paper: #fdf6e3;
   --cream: #f3e9d2;
@@ -47,7 +47,7 @@ body {
 }
 
 body {
-  background: radial-gradient(120% 80% at 50% 0%, #eeeeee 0%, var(--bg) 62%);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
   overflow: hidden;
