@@ -1,4 +1,7 @@
+import { inject } from '@vercel/analytics';
 import { createScreenPainter } from './screen-painter.js';
+
+inject();
 
 // The page has two states around the real game, which runs untouched in an
 // iframe: an idle 3D showcase with the game's start screen on the model, and a
